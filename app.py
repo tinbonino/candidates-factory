@@ -136,7 +136,7 @@ def _sample_candidate():
 
 # ── Main flow ─────────────────────────────────────────────────────────────────
 API_URL = os.getenv("API_URL", "")          # Vercel deployment URL
-agent_configured = bool(os.getenv("AGENT_API_KEY") and API_URL)
+agent_configured = bool(os.getenv("GROQ_API_KEY") and API_URL)
 
 if agent_configured:
     # ── AUTO MODE — calls Vercel API which proxies to SAI ─────────────────────

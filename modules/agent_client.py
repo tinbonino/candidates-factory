@@ -1,9 +1,5 @@
 """
-AgentClient — calls the SAI external AI agent to extract structured candidate data from CV text.
-
-Endpoint : POST https://sai-library.saiapplications.com/api/templates/69f263ac4b33fbdc46ebeb55/batch
-Request  : { "resume": "<cv_text>" }
-Auth     : x-api-key header
+AgentClient — uses Groq (llama-3.3-70b-versatile) to extract structured candidate data from CV text.
 """
 import json
 import os
@@ -14,7 +10,65 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-AGENT_URL = "https://sai-library.saiapplications.com/api/templates/69f263ac4b33fbdc46ebeb55/execute"
+GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = "llama-3.3-70b-versatile"
+
+SYSTEM_PROMPT = """You are an expert HR data extraction specialist working for LDH Latam Digital Hub by Stefanini. Your sole task is to analyze the raw text of a candidate's CV and return a single, valid JSON object with structured data. You never explain, comment, or add any text outside the JSON.
+
+OUTPUT RULES:
+- Return ONLY a raw JSON object — no markdown, no code fences, no explanation
+- All text fields must be in English (translate if the CV is in another language)
+- Never include contact information: no emails, phone numbers, LinkedIn URLs, or physical addresses
+- If a field is not found in the CV, infer it where possible or return null
+
+ANONYMIZATION:
+- last_name_initial must be the first letter of last_name followed by a period (e.g. "Martinez" → "M.")
+- Never include the full last name in the summary or any other field
+
+REQUIRED JSON SCHEMA:
+{
+  "first_name": "string",
+  "last_name": "string",
+  "last_name_initial": "string",
+  "title": "string — current or most recent professional role",
+  "summary": "string — 3 to 5 sentence executive summary written in third person, synthesized from the full CV",
+  "skills": ["string — list of 8 to 12 top technical and soft skills"],
+  "core_expertise": "string — 1 to 2 sentence description of the candidate's main technical domain",
+  "key_industries": ["string — industries the candidate has worked in"],
+  "technical_highlights": "string — most notable technical achievement or technology stack",
+  "integration_skills": "string — APIs, platforms, or integration technologies used",
+  "key_training": ["string — relevant non-official courses or training programs"],
+  "key_strengths": "string — 3 to 5 professional strengths as a short paragraph",
+  "areas_for_growth": "string — honest and constructive development areas based on the CV",
+  "overall_rating": "string — seniority level and score out of 10, e.g. 'Senior / 8.5/10'",
+  "technical_accuracy": "string — brief assessment of the candidate's technical depth",
+  "languages": [{"lang": "string", "level": "string"}],
+  "experience": [
+    {
+      "company": "string",
+      "role": "string",
+      "period": "string",
+      "description": "string — one to two sentence summary of responsibilities",
+      "achievements": ["string — specific, quantified achievements when available"]
+    }
+  ],
+  "education": [
+    {
+      "institution": "string",
+      "degree": "string",
+      "year": "string"
+    }
+  ],
+  "certifications": ["string"],
+  "years_of_experience": "number",
+  "availability": "string or null",
+  "salary_expectation": "string or null",
+  "current_location": "string or null",
+  "work_model": "string or null — Remote, Hybrid, or On-site",
+  "visa_status": "string or null",
+  "interview_availability": "string or null",
+  "recruiter_comments": null
+}"""
 
 
 @dataclass
@@ -96,7 +150,7 @@ class CandidateData:
             experience=data.get("experience", []),
             education=data.get("education", []),
             certifications=data.get("certifications", []),
-            years_of_experience=int(data.get("years_of_experience", 0)),
+            years_of_experience=int(data.get("years_of_experience") or 0),
             availability=data.get("availability"),
             salary_expectation=data.get("salary_expectation"),
         )
@@ -104,71 +158,43 @@ class CandidateData:
 
 class AgentClient:
     def __init__(self):
-        self._api_key = os.getenv("AGENT_API_KEY")
+        self._api_key = os.getenv("GROQ_API_KEY")
         if not self._api_key:
-            raise ValueError("AGENT_API_KEY must be set in .env")
+            raise ValueError("GROQ_API_KEY must be set in .env")
 
     def extract_candidate_data(self, cv_text: str) -> CandidateData:
         headers = {
-            "x-api-key": self._api_key,
+            "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        payload = {"inputs": {"resume": cv_text}}
+        payload = {
+            "model": GROQ_MODEL,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user",   "content": f"Extract the candidate data from the following CV:\n\n{cv_text}"},
+            ],
+            "temperature": 0.1,
+            "max_tokens": 4096,
+        }
 
-        resp = requests.post(AGENT_URL, json=payload, headers=headers, timeout=120)
+        resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=120)
         resp.raise_for_status()
 
-        raw = self._parse_response(resp.json())
-        return CandidateData.from_dict(raw)
-
-    def _parse_response(self, resp_data) -> dict:
-        """
-        Extracts the JSON candidate data from the agent response.
-        Handles common response envelope patterns.
-        """
-        # If the response is already a dict with candidate fields
-        if isinstance(resp_data, dict):
-            # Direct response
-            if "first_name" in resp_data:
-                return resp_data
-            # Wrapped in a result/data/output key
-            for key in ("result", "data", "output", "response", "content"):
-                if key in resp_data:
-                    val = resp_data[key]
-                    if isinstance(val, str):
-                        return self._extract_json(val)
-                    if isinstance(val, dict):
-                        return val
-
-        # Batch endpoint may return a list
-        if isinstance(resp_data, list) and resp_data:
-            first = resp_data[0]
-            if isinstance(first, dict):
-                if "first_name" in first:
-                    return first
-                for key in ("result", "data", "output", "response", "content"):
-                    if key in first:
-                        val = first[key]
-                        if isinstance(val, str):
-                            return self._extract_json(val)
-                        if isinstance(val, dict):
-                            return val
-
-        # Fallback: treat the whole response as a string and extract JSON
-        return self._extract_json(json.dumps(resp_data))
+        raw = resp.json()["choices"][0]["message"]["content"].strip()
+        raw = self._clean_json(raw)
+        data = json.loads(raw)
+        return CandidateData.from_dict(data)
 
     @staticmethod
-    def _extract_json(text: str) -> dict:
-        """Strips markdown fences and parses the first JSON object found."""
-        text = text.strip()
+    def _clean_json(text: str) -> str:
+        """Strip markdown fences if present."""
         if text.startswith("```"):
             parts = text.split("```")
             text = parts[1] if len(parts) > 1 else text
             if text.startswith("json"):
                 text = text[4:]
-        # Find first { ... }
         start = text.find("{")
         end   = text.rfind("}") + 1
         if start != -1 and end > start:
             text = text[start:end]
-        return json.loads(text)
+        return text.strip()
