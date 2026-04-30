@@ -346,7 +346,7 @@ def _draw_footer(c, logo_path):
 # ── PUBLIC ENTRY POINT ────────────────────────────────────────────────────────
 def generate(candidate, output_path: str) -> str:
     logo_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "assets", "ldh_logo.png")
+        os.path.join(os.path.dirname(__file__), "..", "..", "assets", "ldh_logo.jpg")
     )
 
     cv = canvas.Canvas(output_path, pagesize=A4)

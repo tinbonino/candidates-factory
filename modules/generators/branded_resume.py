@@ -107,7 +107,7 @@ def _bold(size=9):
 
 def generate(candidate, output_path: str):
     logo_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "assets", "ldh_logo.png")
+        os.path.join(os.path.dirname(__file__), "..", "..", "assets", "ldh_logo.jpg")
     )
 
     doc = SimpleDocTemplate(

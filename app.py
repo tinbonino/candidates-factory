@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # ── Branding ──────────────────────────────────────────────────────────────────
-logo_path = os.path.join(os.path.dirname(__file__), "assets", "ldh_logo.png")
+logo_path = os.path.join(os.path.dirname(__file__), "assets", "ldh_logo.jpg")
 if os.path.exists(logo_path):
     st.image(logo_path, width=180)
 
