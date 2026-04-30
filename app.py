@@ -1,4 +1,6 @@
+import io
 import os
+import zipfile
 import tempfile
 import streamlit as st
 from dotenv import load_dotenv
@@ -20,6 +22,17 @@ st.title("Candidates Factory")
 st.caption("LDH Latam Digital Hub by Stefanini — CV Processing Automation")
 st.divider()
 
+# ── Config ────────────────────────────────────────────────────────────────────
+API_URL          = os.getenv("API_URL", "").rstrip("/")
+GROQ_API_KEY     = os.getenv("GROQ_API_KEY", "")
+agent_configured = bool(GROQ_API_KEY and API_URL)
+
+# ── Session state init ────────────────────────────────────────────────────────
+for key in ("pdfs", "display_name", "candidate_info", "last_file"):
+    if key not in st.session_state:
+        st.session_state[key] = None
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def _generate_pdfs(candidate):
     from modules.generators import infographic, submission_form, branded_resume
@@ -35,163 +48,248 @@ def _generate_pdfs(candidate):
         return {k: open(v, "rb").read() for k, v in paths.items()}
 
 
-def _download_buttons(pdfs, display_name):
-    st.success(f"Documentos generados para **{display_name}**")
-    c1, c2, c3 = st.columns(3)
+def _make_zip(pdfs, display_name) -> bytes:
     safe = display_name.replace(" ", "_")
-    c1.download_button("📊 Infographic", data=pdfs["infographic"],
-                       file_name=f"infographic_{safe}.pdf", mime="application/pdf",
-                       use_container_width=True)
-    c2.download_button("📋 Submission Form", data=pdfs["submission_form"],
-                       file_name=f"submission_form_{safe}.pdf", mime="application/pdf",
-                       use_container_width=True)
-    c3.download_button("📄 Branded Resume", data=pdfs["resume_branded"],
-                       file_name=f"resume_branded_{safe}.pdf", mime="application/pdf",
-                       use_container_width=True)
-
-    # OneDrive (optional)
-    if all([os.getenv("AZURE_CLIENT_ID"), os.getenv("AZURE_CLIENT_SECRET"), os.getenv("AZURE_TENANT_ID")]):
-        if st.button("☁️ Subir a OneDrive", use_container_width=True):
-            with st.spinner("Subiendo archivos..."):
-                try:
-                    with tempfile.TemporaryDirectory() as td:
-                        paths = {}
-                        for k, b in pdfs.items():
-                            p = os.path.join(td, f"{k}.pdf")
-                            open(p, "wb").write(b)
-                            paths[k] = p
-                        from modules.onedrive import upload_candidate_files
-                        links = upload_candidate_files(
-                            display_name,
-                            paths["infographic"], paths["submission_form"], paths["resume_branded"],
-                        )
-                    st.success("Archivos subidos a OneDrive!")
-                    st.json(links)
-                except Exception as e:
-                    st.error(f"Error OneDrive: {e}")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"infographic_{safe}.pdf",     pdfs["infographic"])
+        zf.writestr(f"submission_form_{safe}.pdf",  pdfs["submission_form"])
+        zf.writestr(f"resume_branded_{safe}.pdf",   pdfs["resume_branded"])
+    buf.seek(0)
+    return buf.getvalue()
 
 
-def _sample_candidate():
-    from modules.agent_client import CandidateData
-    return CandidateData(
-        first_name="Juan",
-        last_name="Martinez",
-        last_name_initial="M.",
-        title="Senior Full Stack Engineer",
-        summary=(
-            "Juan M. is a seasoned Full Stack Engineer with over 8 years of experience building "
-            "scalable web applications for enterprise clients across financial services and e-commerce. "
-            "He specializes in React, Node.js, and cloud-native architectures on AWS, with a strong "
-            "track record of delivering high-performance solutions under tight deadlines."
-        ),
-        skills=["React", "Node.js", "TypeScript", "AWS", "Docker", "PostgreSQL",
-                "REST APIs", "GraphQL", "Python", "Microservices"],
-        core_expertise="Full Stack development with React/Node.js and cloud-native AWS architectures",
-        key_industries=["Financial Services", "E-Commerce", "HealthTech"],
-        technical_highlights="Led migration of monolithic app to microservices — reduced latency 40%",
-        integration_skills="REST, GraphQL, Kafka, AWS SNS/SQS",
-        key_strengths="Strong problem-solving, team leadership, clean code advocate",
-        areas_for_growth="Mobile development, ML/AI integration",
-        overall_rating="Senior / 8.5/10",
-        technical_accuracy="High — deep understanding of distributed systems",
-        languages=[
-            {"lang": "English",    "level": "Fluent"},
-            {"lang": "Spanish",    "level": "Native"},
-            {"lang": "Portuguese", "level": "Intermediate"},
-        ],
-        experience=[
-            {
-                "company": "Accenture", "role": "Senior Full Stack Engineer",
-                "period": "2021 – Present",
-                "description": "Led development of a real-time trading dashboard used by 500+ financial analysts.",
-                "achievements": [
-                    "Reduced page load time from 4s to 0.8s through code splitting and CDN optimization",
-                    "Architected event-driven backend processing 2M+ daily transactions",
-                    "Mentored team of 4 junior developers, improving sprint velocity by 30%",
-                ],
-            },
-            {
-                "company": "Globant", "role": "Full Stack Developer",
-                "period": "2018 – 2021",
-                "description": "Built e-commerce platform features for a Fortune 500 retail client.",
-                "achievements": [
-                    "Recommendation engine increasing cart conversion by 18%",
-                    "REST API layer serving 10M+ monthly requests",
-                ],
-            },
-        ],
-        education=[
-            {"institution": "Universidad de Buenos Aires", "degree": "B.Sc. Computer Science", "year": "2017"},
-        ],
-        certifications=["AWS Certified Solutions Architect", "Google Cloud Professional", "Scrum Master PSM I"],
-        years_of_experience=8,
-        availability="2 weeks notice",
-        salary_expectation="USD 5,500/month",
-        current_location="Buenos Aires, Argentina",
-        work_model="Remote",
-        visa_status="Not required",
-        interview_availability="Weekdays after 5pm",
+def _download_buttons(pdfs, display_name):
+    st.success(f"✅ Documentos generados para **{display_name}**")
+    safe = display_name.replace(" ", "_")
+
+    # ── Individual downloads ───────────────────────────────────────────────
+    c1, c2, c3 = st.columns(3)
+    c1.download_button(
+        "📊 Infographic",
+        data=pdfs["infographic"],
+        file_name=f"infographic_{safe}.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+        type="primary",
+        key="dl_infographic",
+    )
+    c2.download_button(
+        "📋 Submission Form",
+        data=pdfs["submission_form"],
+        file_name=f"submission_form_{safe}.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+        type="primary",
+        key="dl_submission",
+    )
+    c3.download_button(
+        "📄 Branded Resume",
+        data=pdfs["resume_branded"],
+        file_name=f"resume_branded_{safe}.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+        type="primary",
+        key="dl_resume",
+    )
+
+    st.divider()
+
+    # ── ZIP download ───────────────────────────────────────────────────────
+    zip_bytes = _make_zip(pdfs, display_name)
+    st.download_button(
+        "⬇️ Descargar los 3 documentos en un ZIP",
+        data=zip_bytes,
+        file_name=f"LDH_{safe}_docs.zip",
+        mime="application/zip",
+        use_container_width=True,
+        key="dl_zip",
     )
 
 
-# ── Main flow ─────────────────────────────────────────────────────────────────
-API_URL = os.getenv("API_URL", "")          # Vercel deployment URL
-agent_configured = bool(os.getenv("GROQ_API_KEY") and API_URL)
+def _clear_results():
+    for key in ("pdfs", "display_name", "candidate_info", "last_file"):
+        st.session_state[key] = None
 
+
+# ── MAIN ──────────────────────────────────────────────────────────────────────
 if agent_configured:
-    # ── AUTO MODE — calls Vercel API which proxies to SAI ─────────────────────
-    uploaded = st.file_uploader("Subí el CV del candidato (PDF)", type=["pdf"])
+    # ── AUTO MODE ─────────────────────────────────────────────────────────────
+    st.markdown("### Subí el CV del candidato")
+    uploaded = st.file_uploader(
+        "Formato PDF", type=["pdf"], label_visibility="collapsed"
+    )
 
-    if uploaded and st.button("Procesar CV", type="primary", use_container_width=True):
-        import requests
-        from modules.agent_client import CandidateData
+    # Reset results when a new file is selected
+    if uploaded and st.session_state["last_file"] != uploaded.name:
+        _clear_results()
+        st.session_state["last_file"] = uploaded.name
 
-        with st.spinner("Procesando CV con el agente de IA..."):
-            try:
-                resp = requests.post(
-                    f"{API_URL.rstrip('/')}/api/extract",
-                    files={"file": (uploaded.name, uploaded.getvalue(), "application/pdf")},
-                    timeout=120,
+    if uploaded:
+        st.info(f"📎 **{uploaded.name}** listo para procesar.")
+
+        # Show Process button only when no results yet
+        if st.session_state["pdfs"] is None:
+            if st.button("Procesar CV", type="primary", use_container_width=True):
+                import requests
+                from modules.agent_client import CandidateData
+
+                with st.spinner("🤖 Extrayendo y procesando datos del CV..."):
+                    try:
+                        resp = requests.post(
+                            f"{API_URL}/api/extract",
+                            files={
+                                "file": (
+                                    uploaded.name,
+                                    uploaded.getvalue(),
+                                    "application/pdf",
+                                )
+                            },
+                            timeout=120,
+                        )
+                        if resp.status_code != 200:
+                            st.error(
+                                f"Error del servidor ({resp.status_code}): {resp.text[:300]}"
+                            )
+                            st.stop()
+                        candidate = CandidateData.from_dict(resp.json())
+                    except Exception as e:
+                        st.error(f"Error procesando CV: {e}")
+                        st.stop()
+
+                with st.spinner("📄 Generando documentos..."):
+                    try:
+                        pdfs = _generate_pdfs(candidate)
+                    except Exception as e:
+                        st.error(f"Error generando PDFs: {e}")
+                        st.stop()
+
+                # Persist results in session state
+                st.session_state["pdfs"]           = pdfs
+                st.session_state["display_name"]   = candidate.display_name
+                st.session_state["candidate_info"] = (
+                    candidate.display_name,
+                    candidate.title,
+                    resp.json(),
                 )
-                if resp.status_code != 200:
-                    st.error(f"Error del servidor: {resp.status_code} — {resp.text[:300]}")
-                    st.stop()
-                candidate = CandidateData.from_dict(resp.json())
-            except Exception as e:
-                st.error(f"Error procesando CV: {e}")
-                st.stop()
+                st.rerun()
 
-        with st.expander("Datos extraídos", expanded=False):
-            st.json(resp.json())
+    # ── Show results (persisted across reruns) ────────────────────────────────
+    if st.session_state["pdfs"] is not None:
+        info = st.session_state["candidate_info"]
+        if info:
+            name, title, json_data = info
+            st.markdown(f"**Candidato identificado:** {name} — {title}")
+            with st.expander("Ver datos extraídos", expanded=False):
+                st.json(json_data)
 
-        with st.spinner("Generando PDFs..."):
-            try:
-                pdfs = _generate_pdfs(candidate)
-            except Exception as e:
-                st.error(f"Error generando PDFs: {e}")
-                st.stop()
+        _download_buttons(st.session_state["pdfs"], st.session_state["display_name"])
 
-        _download_buttons(pdfs, candidate.display_name)
+        st.divider()
+        if st.button("🔄 Procesar otro CV", use_container_width=True):
+            _clear_results()
+            st.rerun()
 
 else:
-    # ── DEMO MODE (agent not configured) ──────────────────────────────────────
+    # ── DEMO MODE ─────────────────────────────────────────────────────────────
     st.warning(
-        "El agente de IA no está configurado aún. "
-        "Podés generar los documentos con un perfil de ejemplo para probar el sistema.",
-        icon="⚠️",
+        "⚠️ El agente de IA no está configurado aún. "
+        "Podés generar los documentos con un perfil de ejemplo para probar el sistema."
     )
 
-    if st.button("Generar documentos de ejemplo", type="primary", use_container_width=True):
-        candidate = _sample_candidate()
+    if st.button(
+        "Generar documentos de ejemplo", type="primary", use_container_width=True
+    ):
+        from modules.agent_client import CandidateData
 
-        with st.spinner("Generando PDFs..."):
+        candidate = CandidateData(
+            first_name="Juan",
+            last_name="Martinez",
+            last_name_initial="M.",
+            title="Senior Full Stack Engineer",
+            summary="Juan M. is a seasoned Full Stack Engineer with over 8 years of experience building scalable web applications for enterprise clients across financial services and e-commerce. He specializes in React, Node.js, and cloud-native architectures on AWS.",
+            skills=[
+                "React", "Node.js", "TypeScript", "AWS", "Docker",
+                "PostgreSQL", "REST APIs", "GraphQL", "Python", "Microservices",
+            ],
+            core_expertise="Full Stack development with React/Node.js and cloud-native AWS architectures",
+            key_industries=["Financial Services", "E-Commerce", "HealthTech"],
+            technical_highlights="Led migration of monolithic app to microservices — reduced latency 40%",
+            integration_skills="REST, GraphQL, Kafka, AWS SNS/SQS",
+            key_strengths="Strong problem-solving, team leadership, clean code advocate",
+            areas_for_growth="Mobile development, ML/AI integration",
+            overall_rating="Senior / 8.5/10",
+            technical_accuracy="High — deep understanding of distributed systems",
+            languages=[
+                {"lang": "English",    "level": "Fluent"},
+                {"lang": "Spanish",    "level": "Native"},
+                {"lang": "Portuguese", "level": "Intermediate"},
+            ],
+            experience=[
+                {
+                    "company": "Accenture",
+                    "role": "Senior Full Stack Engineer",
+                    "period": "2021 – Present",
+                    "description": "Led development of a real-time trading dashboard used by 500+ financial analysts.",
+                    "achievements": [
+                        "Reduced page load time from 4s to 0.8s",
+                        "Architected event-driven backend processing 2M+ daily transactions",
+                        "Mentored team of 4 junior developers, improving sprint velocity by 30%",
+                    ],
+                },
+                {
+                    "company": "Globant",
+                    "role": "Full Stack Developer",
+                    "period": "2018 – 2021",
+                    "description": "Built e-commerce platform features for a Fortune 500 retail client.",
+                    "achievements": [
+                        "Recommendation engine increasing cart conversion by 18%",
+                        "REST API layer serving 10M+ monthly requests",
+                    ],
+                },
+            ],
+            education=[
+                {
+                    "institution": "Universidad de Buenos Aires",
+                    "degree": "B.Sc. Computer Science",
+                    "year": "2017",
+                }
+            ],
+            certifications=[
+                "AWS Certified Solutions Architect",
+                "Google Cloud Professional",
+                "Scrum Master PSM I",
+            ],
+            years_of_experience=8,
+            availability="2 weeks notice",
+            salary_expectation="USD 5,500/month",
+            current_location="Buenos Aires, Argentina",
+            work_model="Remote",
+            visa_status="Not required",
+            interview_availability="Weekdays after 5pm",
+        )
+
+        with st.spinner("📄 Generando documentos..."):
             try:
                 pdfs = _generate_pdfs(candidate)
             except Exception as e:
                 st.error(f"Error generando PDFs: {e}")
                 st.stop()
 
-        _download_buttons(pdfs, candidate.display_name)
+        st.session_state["pdfs"]         = pdfs
+        st.session_state["display_name"] = candidate.display_name
+        st.rerun()
+
+    # Show demo results if already generated
+    if st.session_state["pdfs"] is not None:
+        _download_buttons(
+            st.session_state["pdfs"],
+            st.session_state["display_name"],
+        )
+        st.divider()
+        if st.button("🔄 Generar de nuevo", use_container_width=True):
+            _clear_results()
+            st.rerun()
 
 st.divider()
 st.caption("LDH Latam Digital Hub by Stefanini — Confidential")

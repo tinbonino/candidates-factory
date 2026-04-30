@@ -54,16 +54,37 @@ def _header(story, candidate, logo_path):
 
     if logo_path and os.path.exists(logo_path):
         from reportlab.platypus import Image
-        logo      = Image(logo_path, width=40 * mm, height=14 * mm)
+        from reportlab.lib.utils import ImageReader
+
+        # Compute logo dimensions preserving exact aspect ratio
+        try:
+            ir = ImageReader(logo_path)
+            iw_px, ih_px = ir.getSize()
+            aspect = iw_px / ih_px
+        except Exception:
+            aspect = 4.0   # fallback wide landscape ratio
+
+        logo_h = 16 * mm
+        logo_w = logo_h * aspect
+        # Cap so it doesn't overflow: leave at least 70 mm for the name
+        content_w = W - 2 * MARGIN
+        max_logo_w = content_w - 70 * mm
+        logo_w = min(logo_w, max_logo_w)
+
+        logo      = Image(logo_path, width=logo_w, height=logo_h)
         name_para = Paragraph(candidate.display_name, name_style)
+        logo_col  = logo_w + 4 * mm
+        name_col  = content_w - logo_col
+
         tbl = Table(
             [[name_para, logo]],
-            colWidths=[W - 2 * MARGIN - 45 * mm, 45 * mm],
+            colWidths=[name_col, logo_col],
         )
         tbl.setStyle(TableStyle([
             ("VALIGN",       (0, 0), (-1, -1), "MIDDLE"),
             ("LEFTPADDING",  (0, 0), (-1, -1), 0),
             ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("ALIGN",        (1, 0), (1, 0),   "RIGHT"),
         ]))
         story.append(tbl)
     else:
