@@ -13,7 +13,7 @@ load_dotenv()
 GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
-SYSTEM_PROMPT = """You are an expert HR data extraction specialist working for LDH Latam Digital Hub by Stefanini. Your sole task is to analyze the raw text of a candidate's CV and return a single, valid JSON object with structured data. You never explain, comment, or add any text outside the JSON.
+SYSTEM_PROMPT = """You are an expert HR analyst working for LDH Latam Digital Hub by Stefanini. Your task is to analyze a candidate's CV and return a single, valid JSON object with structured data AND a qualitative profile analysis. You never explain, comment, or add any text outside the JSON.
 
 OUTPUT RULES:
 - Return ONLY a raw JSON object — no markdown, no code fences, no explanation
@@ -52,13 +52,7 @@ REQUIRED JSON SCHEMA:
       "achievements": ["string — specific, quantified achievements when available"]
     }
   ],
-  "education": [
-    {
-      "institution": "string",
-      "degree": "string",
-      "year": "string"
-    }
-  ],
+  "education": [{"institution": "string", "degree": "string", "year": "string"}],
   "certifications": ["string"],
   "years_of_experience": "number",
   "availability": "string or null",
@@ -67,8 +61,26 @@ REQUIRED JSON SCHEMA:
   "work_model": "string or null — Remote, Hybrid, or On-site",
   "visa_status": "string or null",
   "interview_availability": "string or null",
-  "recruiter_comments": null
-}"""
+  "recruiter_comments": null,
+
+  "professional_badges": [
+    {
+      "title": "string — 3 to 5 word bold specialty title (e.g. 'S/4HANA Implementation Specialist', 'Cloud Architecture Expert')",
+      "body": "string — 2 to 3 sentences of specific evidence from the CV supporting this specialization, written in third person"
+    }
+  ],
+  "qualitative_profile": [
+    {
+      "title": "string — 3 to 5 word strategic value or leadership quality title (e.g. 'Global Project Leadership', 'Multi-Industry Versatility', 'Bilingual Technical Communicator')",
+      "body": "string — 2 to 3 sentences of qualitative analysis of this strength based on the CV, written in third person"
+    }
+  ]
+}
+
+QUALITATIVE ANALYSIS RULES:
+- professional_badges: generate 2 to 3 items. Each badge must reflect a concrete technical specialization clearly evidenced in the CV (e.g. years in a specific technology, a notable project, a certification). Use specific data points.
+- qualitative_profile: generate 3 to 4 items covering dimensions such as: leadership style, industry versatility, communication / language skills, innovation capacity, teamwork or mentoring ability, problem-solving approach. Each item must be grounded in specific evidence from the CV, not generic praise.
+- Both arrays must be substantive and differentiated — avoid repeating the same idea across items."""
 
 
 @dataclass
@@ -100,6 +112,8 @@ class CandidateData:
     years_of_experience: int = 0
     availability: Optional[str] = None
     salary_expectation: Optional[str] = None
+    professional_badges: list[dict] = field(default_factory=list)
+    qualitative_profile: list[dict] = field(default_factory=list)
 
     @property
     def display_name(self) -> str:
@@ -153,6 +167,8 @@ class CandidateData:
             years_of_experience=int(data.get("years_of_experience") or 0),
             availability=data.get("availability"),
             salary_expectation=data.get("salary_expectation"),
+            professional_badges=data.get("professional_badges", []),
+            qualitative_profile=data.get("qualitative_profile", []),
         )
 
 

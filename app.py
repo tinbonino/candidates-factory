@@ -267,6 +267,38 @@ else:
             work_model="Remote",
             visa_status="Not required",
             interview_availability="Weekdays after 5pm",
+            professional_badges=[
+                {
+                    "title": "Cloud-Native Architecture Specialist",
+                    "body": "Juan M. has led end-to-end cloud migrations on AWS, designing event-driven microservices that process over 2 million daily transactions. His hands-on expertise spans EC2, Lambda, SNS/SQS, and RDS, backed by AWS Solutions Architect certification.",
+                },
+                {
+                    "title": "Full Stack Innovation Driver",
+                    "body": "With 8+ years building production-grade React and Node.js applications, Juan M. consistently delivers measurable performance gains — including a 5× reduction in page load time for a Fortune 500 financial client.",
+                },
+                {
+                    "title": "Agile Team Leader & Mentor",
+                    "body": "Proven track record mentoring junior developers and leading cross-functional squads, improving sprint velocity by 30% at Accenture through coaching, code reviews, and process optimisation.",
+                },
+            ],
+            qualitative_profile=[
+                {
+                    "title": "Global Project Leadership",
+                    "body": "Juan M. has managed distributed engineering teams across Argentina and Brazil for enterprise clients including Accenture, coordinating deliverables across time zones and aligning technical roadmaps with business objectives.",
+                },
+                {
+                    "title": "Multi-Industry Versatility",
+                    "body": "High-impact delivery across Financial Services, E-Commerce, and HealthTech sectors. Juan M. adapts rapidly to domain-specific constraints — from financial compliance requirements to high-availability retail platforms serving millions of users.",
+                },
+                {
+                    "title": "Bilingual Technical Communicator",
+                    "body": "Fluent in English and Spanish, with intermediate Portuguese, enabling seamless collaboration with global stakeholders, international clients, and LATAM regional teams without communication barriers.",
+                },
+                {
+                    "title": "Problem Solver & Clean Code Advocate",
+                    "body": "Juan M. applies strong analytical thinking to complex system design challenges, consistently producing maintainable, well-documented code. His solutions are built for scale — prioritising reliability and developer experience equally.",
+                },
+            ],
         )
 
         with st.spinner("📄 Generando documentos..."):

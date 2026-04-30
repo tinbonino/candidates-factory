@@ -201,9 +201,9 @@ def _draw_left(c, candidate):
     y = BODY_TOP
 
     # Column header
-    y = _col_header(c, 0, y, SIDEBAR_W, "Professional Profile")
+    y = _col_header(c, 0, y, SIDEBAR_W, "Professional Excellence & Tech Match")
 
-    # ── BIG years number ─────────────────────────────────────────────────────
+    # ── BIG years number ──────────────────────────────────────────────────────
     if candidate.years_of_experience:
         num = str(candidate.years_of_experience) + "+"
         c.setFont("Helvetica-Bold", 46)
@@ -217,51 +217,40 @@ def _draw_left(c, candidate):
         lw = c.stringWidth(label, "Helvetica-Bold", 8)
         c.drawString(SB_X + (SB_W - lw) / 2, y, label)
         y -= 4 * mm
-        # Availability sub-note
         if candidate.availability:
             c.setFont("Helvetica", 6.5)
             c.setFillColor(C_GRAY)
             note = f"Available: {candidate.availability}"
-            nw = c.stringWidth(note, "Helvetica", 6.5)
-            c.drawString(SB_X + (SB_W - nw) / 2, y, note)
+            nw2 = c.stringWidth(note, "Helvetica", 6.5)
+            c.drawString(SB_X + (SB_W - nw2) / 2, y, note)
             y -= 4 * mm
-        y -= 3 * mm
+        y -= 2 * mm
         y = _divider(c, SB_X, y, SB_W)
 
-    # ── Core Expertise block ──────────────────────────────────────────────────
-    if candidate.core_expertise and y > BODY_BOT + 45 * mm:
-        y = _block_title(c, SB_X, y, "Core Expertise")
-        h = _para(c, candidate.core_expertise,
-                  SB_X, y, SB_W, 28 * mm,
-                  font="Helvetica-Oblique", size=7.5, color=C_DARK, leading=11)
-        y -= (h + 4 * mm)
-        y = _divider(c, SB_X, y, SB_W)
+    # ── AI-generated professional badges ──────────────────────────────────────
+    badges = candidate.professional_badges or []
 
-    # ── Key Achievement block ─────────────────────────────────────────────────
-    if candidate.technical_highlights and y > BODY_BOT + 32 * mm:
-        y = _block_title(c, SB_X, y, "Key Achievement")
-        h = _para(c, candidate.technical_highlights,
-                  SB_X, y, SB_W, 22 * mm,
+    # Fallback to core_expertise + technical_highlights if no badges yet
+    if not badges:
+        if candidate.core_expertise:
+            badges.append({"title": "Core Expertise", "body": candidate.core_expertise})
+        if candidate.technical_highlights:
+            badges.append({"title": "Key Achievement", "body": candidate.technical_highlights})
+
+    for badge in badges[:3]:
+        if y < BODY_BOT + 28 * mm:
+            break
+        title = badge.get("title", "")
+        body  = badge.get("body", "")
+
+        y = _block_title(c, SB_X, y, title)
+        h = _para(c, body, SB_X, y, SB_W, 30 * mm,
                   font="Helvetica", size=7.5, color=C_DARK, leading=11)
         y -= (h + 4 * mm)
         y = _divider(c, SB_X, y, SB_W)
 
-    # ── Certifications block ──────────────────────────────────────────────────
-    if candidate.certifications and y > BODY_BOT + 18 * mm:
-        y = _block_title(c, SB_X, y, "Certifications")
-        for cert in candidate.certifications[:4]:
-            if y < BODY_BOT + 8 * mm:
-                break
-            c.setFillColor(C_ORANGE)
-            c.circle(SB_X + 1.5 * mm, y + 1 * mm, 1.5 * mm, fill=1, stroke=0)
-            c.setFont("Helvetica", 6.5)
-            c.setFillColor(C_DARK)
-            c.drawString(SB_X + 4.5 * mm, y, cert[:32])
-            y -= 5 * mm
-
-    # ── Overall rating (bottom of left column) ────────────────────────────────
+    # ── Overall rating bar ────────────────────────────────────────────────────
     if candidate.overall_rating and y > BODY_BOT + 14 * mm:
-        y = _divider(c, SB_X, y - 2 * mm, SB_W)
         score, seniority = _parse_rating(candidate.overall_rating)
         if seniority:
             c.setFont("Helvetica-Bold", 8)
@@ -287,82 +276,53 @@ def _draw_right(c, candidate):
     # Column header
     y = _col_header(c, SIDEBAR_W, y, PW - SIDEBAR_W, "Strategic Value & Leadership")
 
-    # ── Career Highlights ─────────────────────────────────────────────────────
-    y = _block_title(c, MN_X, y, "Career Highlights")
-
     dot_map = {"native": 5, "fluent": 5, "advanced": 4,
                "upper-intermediate": 4, "intermediate": 3,
                "basic": 2, "beginner": 1, "elementary": 1}
 
-    for exp in candidate.experience[:3]:
-        if y < BODY_BOT + 95 * mm:
+    # ── AI-generated qualitative profile blocks ───────────────────────────────
+    qual = candidate.qualitative_profile or []
+
+    # Fallback: build blocks from existing structured fields
+    if not qual:
+        if candidate.key_industries:
+            ind_list = ", ".join(candidate.key_industries[:4])
+            qual.append({
+                "title": "Multi-Industry Versatility",
+                "body": f"Demonstrated high-impact delivery across {ind_list} sectors, adapting technical solutions to diverse business contexts and regulatory environments.",
+            })
+        if candidate.languages and len(candidate.languages) > 1:
+            langs = " and ".join(l.get("lang", "") for l in candidate.languages[:3])
+            qual.append({
+                "title": "Bilingual Technical Communicator",
+                "body": f"Professional proficiency in {langs}, enabling effective collaboration with global and regional teams and bridging communication gaps between stakeholders.",
+            })
+        if candidate.key_strengths:
+            qual.append({
+                "title": "Leadership & Team Development",
+                "body": candidate.key_strengths,
+            })
+
+    for block in qual[:4]:
+        if y < BODY_BOT + 20 * mm:
             break
-        role    = exp.get("role", "")
-        company = exp.get("company", "")
-        period  = exp.get("period", "")
-        achs    = exp.get("achievements", [])
+        title = block.get("title", "")
+        body  = block.get("body", "")
 
-        # Role + period
-        c.setFont("Helvetica-Bold", 8.5)
-        c.setFillColor(C_BLUE)
-        c.drawString(MN_X, y, role[:52])
-        c.setFont("Helvetica", 7)
-        c.setFillColor(C_ORANGE)
-        pw = c.stringWidth(period, "Helvetica", 7)
-        c.drawString(MN_R - pw, y, period)
-        y -= 4.5 * mm
-
-        # Company
-        c.setFont("Helvetica-Oblique", 7.5)
-        c.setFillColor(C_GRAY)
-        c.drawString(MN_X, y, company[:58])
-        y -= 4.5 * mm
-
-        # Top achievement
-        for ach in achs[:1]:
-            bullet = f"<font color='#FF6B00'>▸</font>  {ach}"
-            h = _para(c, bullet, MN_X + 1*mm, y, MN_W - 1*mm, 12*mm,
-                      font="Helvetica", size=7.5, color=C_DARK, leading=11)
-            y -= (h + 2 * mm)
-
-        y -= 2 * mm
-
-    y = _divider(c, MN_X, y, MN_W)
-
-    # ── Multi-Industry Versatility ────────────────────────────────────────────
-    if candidate.key_industries and y > BODY_BOT + 40 * mm:
-        y = _block_title(c, MN_X, y, "Multi-Industry Versatility")
-        tag_x = MN_X
-        for ind in candidate.key_industries[:6]:
-            label = ind[:22]
-            tw = c.stringWidth(label, "Helvetica", 7) + 6 * mm
-            if tag_x + tw > MN_R - 1 * mm:
-                tag_x = MN_X
-                y -= 7.5 * mm
-            if y < BODY_BOT + 30 * mm:
-                break
-            # Blue outline tag
-            c.setFillColor(C_BLUE_LT)
-            c.setStrokeColor(C_BLUE_MID)
-            c.setLineWidth(0.5)
-            p = c.beginPath()
-            p.roundRect(tag_x, y - 5 * mm, tw, 6 * mm, 1.5 * mm)
-            c.drawPath(p, fill=1, stroke=1)
-            c.setFont("Helvetica", 7)
-            c.setFillColor(C_BLUE)
-            c.drawString(tag_x + 3 * mm, y - 2.8 * mm, label)
-            tag_x += tw + 3 * mm
-        y -= 10 * mm
+        y = _block_title(c, MN_X, y, title)
+        h = _para(c, body, MN_X, y, MN_W, 35 * mm,
+                  font="Helvetica", size=8, color=C_DARK, leading=12)
+        y -= (h + 5 * mm)
         y = _divider(c, MN_X, y, MN_W)
 
     # ── Languages ─────────────────────────────────────────────────────────────
-    if candidate.languages and y > BODY_BOT + 30 * mm:
-        y = _block_title(c, MN_X, y, "Bilingual / Multilingual Profile")
+    if candidate.languages and y > BODY_BOT + 20 * mm:
+        y = _block_title(c, MN_X, y, "Language Profile")
         for lang in candidate.languages[:4]:
-            if y < BODY_BOT + 12 * mm:
+            if y < BODY_BOT + 10 * mm:
                 break
-            name  = lang.get("lang", "")
-            level = lang.get("level", "")
+            name   = lang.get("lang", "")
+            level  = lang.get("level", "")
             filled = dot_map.get(level.lower(), 3)
 
             c.setFont("Helvetica-Bold", 7.5)
@@ -370,15 +330,13 @@ def _draw_right(c, candidate):
             c.drawString(MN_X, y, name)
             c.setFont("Helvetica", 7)
             c.setFillColor(C_GRAY)
-            c.drawString(MN_X + 25 * mm, y, level)
+            c.drawString(MN_X + 28 * mm, y, level)
 
-            # Dot indicators (right side)
             dot_start = MN_R - 5 * 5 * mm
             for d in range(5):
                 cx = dot_start + d * 5 * mm
                 c.setFillColor(C_ORANGE if d < filled else C_GRAY_LT)
                 c.circle(cx, y + 1 * mm, 2 * mm, fill=1, stroke=0)
-
             y -= 7 * mm
 
 
