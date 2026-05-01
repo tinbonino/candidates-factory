@@ -1,5 +1,6 @@
 import os
 import tempfile
+from typing import List
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,33 +25,49 @@ def health():
 
 
 @app.post("/api/extract")
-async def extract_cv(file: UploadFile = File(...)):
+async def extract_cv(files: List[UploadFile] = File(...)):
     """
-    Receives a CV PDF, extracts text, calls the SAI agent,
+    Receives one or more PDFs (resume + optional technical tests),
+    extracts and combines their text, calls the AI agent,
     and returns structured candidate data as JSON.
-    PDF generation happens client-side (Streamlit).
     """
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+    from modules.pdf_extractor import extract_text_from_bytes
 
-    pdf_bytes = await file.read()
-    if not pdf_bytes:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded.")
 
-    # Extract text
-    try:
-        from modules.pdf_extractor import extract_text_from_bytes
-        cv_text = extract_text_from_bytes(pdf_bytes)
-    except Exception as e:
-        raise HTTPException(status_code=422, detail=f"PDF extraction failed: {e}")
+    for f in files:
+        if not f.filename.lower().endswith(".pdf"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only PDF files are accepted. Got: {f.filename}"
+            )
 
-    if not cv_text or len(cv_text.strip()) < 50:
-        raise HTTPException(status_code=422, detail="Could not extract readable text from PDF.")
+    # Extract and label text from each file
+    # First file is always the CV/resume; the rest are supplementary documents
+    sections = []
+    for i, upload in enumerate(files):
+        pdf_bytes = await upload.read()
+        if not pdf_bytes:
+            raise HTTPException(status_code=400, detail=f"File '{upload.filename}' is empty.")
 
-    # Call SAI agent
+        try:
+            text = extract_text_from_bytes(pdf_bytes)
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=f"PDF extraction failed for '{upload.filename}': {e}")
+
+        if not text or len(text.strip()) < 20:
+            raise HTTPException(status_code=422, detail=f"Could not extract readable text from '{upload.filename}'.")
+
+        label = "RESUME / CV" if i == 0 else f"SUPPLEMENTARY DOCUMENT: {upload.filename}"
+        sections.append(f"=== {label} ===\n{text}")
+
+    combined_text = "\n\n".join(sections)
+
+    # Call AI agent with combined text
     try:
         from modules.agent_client import AgentClient
-        candidate = AgentClient().extract_candidate_data(cv_text)
+        candidate = AgentClient().extract_candidate_data(combined_text)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Agent extraction failed: {e}")
 

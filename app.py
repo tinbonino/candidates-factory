@@ -139,36 +139,42 @@ def _clear_results():
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 if agent_configured:
     # ── AUTO MODE ─────────────────────────────────────────────────────────────
-    st.markdown("### Subí el CV del candidato")
-    uploaded = st.file_uploader(
-        "Formato PDF", type=["pdf"], label_visibility="collapsed"
+    st.markdown("### Subí los documentos del candidato")
+    st.caption("El primer archivo debe ser el CV/Resume. Podés agregar tests técnicos u otros documentos adicionales.")
+    uploaded_files = st.file_uploader(
+        "Formato PDF", type=["pdf"],
+        accept_multiple_files=True,
+        label_visibility="collapsed",
     )
 
-    # Reset results when a new file is selected
-    if uploaded and st.session_state["last_file"] != uploaded.name:
+    # Reset results when file selection changes
+    files_key = ",".join(sorted(f.name for f in uploaded_files)) if uploaded_files else ""
+    if files_key and st.session_state["last_file"] != files_key:
         _clear_results()
-        st.session_state["last_file"] = uploaded.name
+        st.session_state["last_file"] = files_key
 
-    if uploaded:
-        st.info(f"📎 **{uploaded.name}** listo para procesar.")
+    if uploaded_files:
+        cv_file = uploaded_files[0]
+        extras  = uploaded_files[1:]
+        st.info(f"📄 **CV:** {cv_file.name}" + (
+            f"  |  📎 **Adicionales:** {', '.join(f.name for f in extras)}" if extras else ""
+        ))
 
         # Show Process button only when no results yet
         if st.session_state["pdfs"] is None:
-            if st.button("Procesar CV", type="primary", use_container_width=True):
+            if st.button("Procesar documentos", type="primary", use_container_width=True):
                 import requests
                 from modules.agent_client import CandidateData
 
-                with st.spinner("🤖 Extrayendo y procesando datos del CV..."):
+                with st.spinner("🤖 Extrayendo y procesando datos..."):
                     try:
+                        files_payload = [
+                            ("files", (f.name, f.getvalue(), "application/pdf"))
+                            for f in uploaded_files
+                        ]
                         resp = requests.post(
                             f"{API_URL}/api/extract",
-                            files={
-                                "file": (
-                                    uploaded.name,
-                                    uploaded.getvalue(),
-                                    "application/pdf",
-                                )
-                            },
+                            files=files_payload,
                             timeout=120,
                         )
                         if resp.status_code != 200:
@@ -178,7 +184,7 @@ if agent_configured:
                             st.stop()
                         candidate = CandidateData.from_dict(resp.json())
                     except Exception as e:
-                        st.error(f"Error procesando CV: {e}")
+                        st.error(f"Error procesando documentos: {e}")
                         st.stop()
 
                 with st.spinner("📄 Generando documentos..."):

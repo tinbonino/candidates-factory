@@ -13,7 +13,11 @@ load_dotenv()
 GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
-SYSTEM_PROMPT = """You are an expert HR analyst working for LDH Latam Digital Hub by Stefanini. Your task is to analyze a candidate's CV and return a single, valid JSON object with structured data AND a qualitative profile analysis. You never explain, comment, or add any text outside the JSON.
+SYSTEM_PROMPT = """You are an expert HR analyst working for LDH Latam Digital Hub by Stefanini. Your task is to analyze one or more documents about a candidate and return a single, valid JSON object with structured data AND a qualitative profile analysis. You never explain, comment, or add any text outside the JSON.
+
+The input may contain:
+- A RESUME / CV section (always present, primary source of structured data)
+- One or more SUPPLEMENTARY DOCUMENT sections (e.g. technical tests, assessments) — use these to enrich technical_highlights, key_strengths, areas_for_growth, overall_rating, technical_accuracy, and the qualitative analysis. Do not extract personal or contact data from supplementary documents.
 
 OUTPUT RULES:
 - Return ONLY a raw JSON object — no markdown, no code fences, no explanation
@@ -187,7 +191,7 @@ class AgentClient:
             "model": GROQ_MODEL,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user",   "content": f"Extract the candidate data from the following CV:\n\n{cv_text}"},
+                {"role": "user",   "content": f"Extract the candidate data from the following documents:\n\n{cv_text}"},
             ],
             "temperature": 0.1,
             "max_tokens": 4096,
