@@ -27,8 +27,12 @@ API_URL          = os.getenv("API_URL", "").rstrip("/")
 GROQ_API_KEY     = os.getenv("GROQ_API_KEY", "")
 agent_configured = bool(GROQ_API_KEY and API_URL)
 
+SHAREPOINT_SITE_URL  = os.getenv("SHAREPOINT_SITE_URL", "")
+AZURE_CLIENT_ID      = os.getenv("AZURE_CLIENT_ID", "")
+sharepoint_configured = bool(SHAREPOINT_SITE_URL and AZURE_CLIENT_ID)
+
 # ── Session state init ────────────────────────────────────────────────────────
-for key in ("pdfs", "display_name", "candidate_info", "last_file"):
+for key in ("pdfs", "display_name", "candidate_info", "last_file", "sharepoint_links"):
     if key not in st.session_state:
         st.session_state[key] = None
 
@@ -57,6 +61,16 @@ def _make_zip(pdfs, display_name) -> bytes:
         zf.writestr(f"resume_branded_{safe}.pdf",   pdfs["resume_branded"])
     buf.seek(0)
     return buf.getvalue()
+
+
+def _upload_to_sharepoint(pdfs, display_name) -> dict | None:
+    """Upload PDFs to SharePoint. Returns links dict or None on failure."""
+    try:
+        from modules.onedrive import upload_candidate_files
+        return upload_candidate_files(display_name, pdfs)
+    except Exception as e:
+        st.warning(f"⚠️ No se pudo subir a SharePoint: {e}")
+        return None
 
 
 def _download_buttons(pdfs, display_name):
@@ -106,9 +120,19 @@ def _download_buttons(pdfs, display_name):
         key="dl_zip",
     )
 
+    # ── SharePoint links ───────────────────────────────────────────────────
+    links = st.session_state.get("sharepoint_links")
+    if links:
+        st.divider()
+        st.markdown("**📁 Archivos en SharePoint:**")
+        col1, col2, col3 = st.columns(3)
+        col1.markdown(f"[📊 Infographic]({links['infographic']})")
+        col2.markdown(f"[📋 Submission Form]({links['submission_form']})")
+        col3.markdown(f"[📄 Branded Resume]({links['resume_branded']})")
+
 
 def _clear_results():
-    for key in ("pdfs", "display_name", "candidate_info", "last_file"):
+    for key in ("pdfs", "display_name", "candidate_info", "last_file", "sharepoint_links"):
         st.session_state[key] = None
 
 
@@ -164,14 +188,20 @@ if agent_configured:
                         st.error(f"Error generando PDFs: {e}")
                         st.stop()
 
+                sp_links = None
+                if sharepoint_configured:
+                    with st.spinner("☁️ Subiendo a SharePoint..."):
+                        sp_links = _upload_to_sharepoint(pdfs, candidate.display_name)
+
                 # Persist results in session state
-                st.session_state["pdfs"]           = pdfs
-                st.session_state["display_name"]   = candidate.display_name
-                st.session_state["candidate_info"] = (
+                st.session_state["pdfs"]             = pdfs
+                st.session_state["display_name"]     = candidate.display_name
+                st.session_state["candidate_info"]   = (
                     candidate.display_name,
                     candidate.title,
                     resp.json(),
                 )
+                st.session_state["sharepoint_links"] = sp_links
                 st.rerun()
 
     # ── Show results (persisted across reruns) ────────────────────────────────
