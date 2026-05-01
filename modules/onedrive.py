@@ -123,8 +123,19 @@ def _ensure_folder(token: str, site_id: str, folder_path: str) -> str:
             "@microsoft.graph.conflictBehavior": "ignore",
         }
         cr = requests.post(create_url, json=body, headers=headers, timeout=30)
-        cr.raise_for_status()
-        folder_id = cr.json()["id"]
+
+        if cr.status_code == 409:
+            # Already exists — fetch it
+            existing = requests.get(
+                f"{GRAPH_BASE}/sites/{site_id}/drive/root:/{current_path}",
+                headers=headers,
+                timeout=30,
+            )
+            existing.raise_for_status()
+            folder_id = existing.json()["id"]
+        else:
+            cr.raise_for_status()
+            folder_id = cr.json()["id"]
 
     return folder_id
 
