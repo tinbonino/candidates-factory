@@ -31,7 +31,24 @@ VALUE_W = USABLE - LABEL_W
 def _logo_header(story, logo_path):
     if logo_path and os.path.exists(logo_path):
         from reportlab.platypus import Image
-        story.append(Image(logo_path, width=50 * mm, height=18 * mm))
+        from reportlab.lib.utils import ImageReader
+
+        try:
+            ir = ImageReader(logo_path)
+            iw_px, ih_px = ir.getSize()
+            aspect = iw_px / ih_px
+        except Exception:
+            aspect = 4.0  # fallback wide landscape ratio
+
+        logo_w = USABLE
+        logo_h = logo_w / aspect
+        # Cap height so it doesn't look oversized
+        max_h = 22 * mm
+        if logo_h > max_h:
+            logo_h = max_h
+            logo_w = logo_h * aspect
+
+        story.append(Image(logo_path, width=logo_w, height=logo_h))
         story.append(Spacer(1, 3 * mm))
 
     story.append(Paragraph(
