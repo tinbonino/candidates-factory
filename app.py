@@ -13,6 +13,12 @@ st.set_page_config(
     layout="centered",
 )
 
+# ── Authentication ─────────────────────────────────────────────────────────────
+_auth_enabled = bool(os.getenv("AZURE_CLIENT_ID") and os.getenv("AZURE_TENANT_ID"))
+if _auth_enabled:
+    from modules.auth import require_auth, logout
+    _user = require_auth()
+
 # ── Branding ──────────────────────────────────────────────────────────────────
 logo_path = os.path.join(os.path.dirname(__file__), "assets", "ldh_logo.jpg")
 if os.path.exists(logo_path):
@@ -20,6 +26,14 @@ if os.path.exists(logo_path):
 
 st.title("Candidates Factory")
 st.caption("LDH Latam Digital Hub by Stefanini — CV Processing Automation")
+
+# ── User info + logout ────────────────────────────────────────────────────────
+if _auth_enabled:
+    col1, col2 = st.columns([4, 1])
+    col1.caption(f"👤 {_user['name']}  ·  {_user['email']}")
+    if col2.button("Cerrar sesión", use_container_width=True):
+        logout()
+
 st.divider()
 
 # ── Config ────────────────────────────────────────────────────────────────────
