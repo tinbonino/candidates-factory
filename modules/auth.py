@@ -22,22 +22,26 @@ import streamlit_authenticator as stauth
 
 
 def _build_authenticator() -> stauth.Authenticate:
-    sec = st.secrets.get("auth", {})
+    """Returns a single Authenticate instance per Streamlit session."""
+    if "_authenticator" not in st.session_state:
+        sec = st.secrets.get("auth", {})
 
-    credentials: dict = {"usernames": {}}
-    for username, info in sec.get("credentials", {}).get("usernames", {}).items():
-        credentials["usernames"][username] = {
-            "name":     info.get("name", username),
-            "password": info.get("password", ""),
-        }
+        credentials: dict = {"usernames": {}}
+        for username, info in sec.get("credentials", {}).get("usernames", {}).items():
+            credentials["usernames"][username] = {
+                "name":     info.get("name", username),
+                "password": info.get("password", ""),
+            }
 
-    return stauth.Authenticate(
-        credentials=credentials,
-        cookie_name=sec.get("cookie_name",   "ldh_cf_auth"),
-        cookie_key=sec.get("cookie_key",    "change_me_long_random_string"),
-        cookie_expiry_days=int(sec.get("cookie_expiry", 30)),
-        auto_hash=True,
-    )
+        st.session_state["_authenticator"] = stauth.Authenticate(
+            credentials=credentials,
+            cookie_name=sec.get("cookie_name",   "ldh_cf_auth"),
+            cookie_key=sec.get("cookie_key",    "change_me_long_random_string"),
+            cookie_expiry_days=int(sec.get("cookie_expiry", 30)),
+            auto_hash=True,
+        )
+
+    return st.session_state["_authenticator"]
 
 
 def require_auth() -> dict:
