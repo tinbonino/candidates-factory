@@ -43,6 +43,11 @@ async def extract_cv(files: List[UploadFile] = File(...)):
                 detail=f"Only PDF files are accepted. Got: {f.filename}"
             )
 
+    # Character limits per document to stay within Groq's payload limit.
+    # ~20k chars ≈ 5k tokens. CV gets more budget than supplementary docs.
+    CV_CHAR_LIMIT  = 20_000
+    DOC_CHAR_LIMIT = 10_000
+
     # Extract and label text from each file
     # First file is always the CV/resume; the rest are supplementary documents
     sections = []
@@ -58,6 +63,11 @@ async def extract_cv(files: List[UploadFile] = File(...)):
 
         if not text or len(text.strip()) < 20:
             raise HTTPException(status_code=422, detail=f"Could not extract readable text from '{upload.filename}'.")
+
+        # Truncate to avoid exceeding Groq's payload limit
+        limit = CV_CHAR_LIMIT if i == 0 else DOC_CHAR_LIMIT
+        if len(text) > limit:
+            text = text[:limit] + "\n\n[... document truncated for processing ...]"
 
         label = "RESUME / CV" if i == 0 else f"SUPPLEMENTARY DOCUMENT: {upload.filename}"
         sections.append(f"=== {label} ===\n{text}")
