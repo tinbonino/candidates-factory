@@ -176,16 +176,72 @@ class CandidateData:
         )
 
 
+SAI_ENDPOINT = os.getenv(
+    "SAI_ENDPOINT",
+    "https://sai-library.saiapplications.com/api/templates/69f263ac4b33fbdc46ebeb55/execute",
+)
+SAI_API_KEY = os.getenv("SAI_API_KEY", "")
+
+
 class AgentClient:
     def __init__(self):
-        self._api_key = os.getenv("GROQ_API_KEY")
-        if not self._api_key:
-            raise ValueError("GROQ_API_KEY must be set in .env")
+        self._groq_key = os.getenv("GROQ_API_KEY", "")
 
     def extract_candidate_data(self, cv_text: str) -> CandidateData:
+        """Try SAI first; fall back to Groq if SAI fails for any reason."""
+
+        if SAI_API_KEY:
+            try:
+                return self._extract_via_sai(cv_text)
+            except Exception as e:
+                print(f"[AgentClient] SAI failed ({e}), falling back to Groq.")
+
+        if not self._groq_key:
+            raise ValueError("No AI provider available: SAI_API_KEY and GROQ_API_KEY are both missing.")
+
+        return self._extract_via_groq(cv_text)
+
+    # ── SAI ───────────────────────────────────────────────────────────────
+    def _extract_via_sai(self, cv_text: str) -> CandidateData:
         headers = {
-            "Authorization": f"Bearer {self._api_key}",
+            "X-API-KEY":    SAI_API_KEY,
             "Content-Type": "application/json",
+        }
+        payload = {"inputs": {"resume": cv_text}}
+
+        resp = requests.post(SAI_ENDPOINT, json=payload, headers=headers, timeout=120)
+        resp.raise_for_status()
+
+        body = resp.json()
+
+        # SAI may return the JSON directly or nested under an output key
+        raw = None
+        if isinstance(body, dict):
+            # Try common wrapper keys first
+            for key in ("output", "result", "response", "content", "text"):
+                if key in body and isinstance(body[key], str):
+                    raw = body[key]
+                    break
+            if raw is None:
+                # Assume the body itself is the candidate JSON
+                raw_candidate = body
+                return CandidateData.from_dict(raw_candidate)
+
+        if raw is None and isinstance(body, str):
+            raw = body
+
+        if not raw:
+            raise ValueError(f"Unexpected SAI response format: {str(body)[:200]}")
+
+        raw = self._clean_json(raw)
+        data = json.loads(raw)
+        return CandidateData.from_dict(data)
+
+    # ── Groq ──────────────────────────────────────────────────────────────
+    def _extract_via_groq(self, cv_text: str) -> CandidateData:
+        headers = {
+            "Authorization": f"Bearer {self._groq_key}",
+            "Content-Type":  "application/json",
         }
         payload = {
             "model": GROQ_MODEL,
@@ -194,7 +250,7 @@ class AgentClient:
                 {"role": "user",   "content": f"Extract the candidate data from the following documents:\n\n{cv_text}"},
             ],
             "temperature": 0.1,
-            "max_tokens": 4096,
+            "max_tokens":  4096,
         }
 
         resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=120)
