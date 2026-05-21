@@ -244,46 +244,69 @@ class AgentClient:
             "Content-Type":  "application/json",
         }
 
-        # First attempt: full text. If 413, retry with 20k chars and concise descriptions.
-        FALLBACK_LIMIT = 20_000
-        concise_suffix = (
-            "\n\nIMPORTANT: The CV text was truncated due to length. "
-            "Include ALL work experiences you can find, even partial ones. "
-            "For each experience use at most 1 sentence for description and skip achievements. "
-            "It is better to list more experiences with less detail than fewer with full detail."
-        )
+        # For very long CVs, compress before sending to avoid 413.
+        CHAR_LIMIT = 20_000
+        text = self._compress_cv(cv_text, CHAR_LIMIT)
 
-        attempts = [
-            (cv_text, SYSTEM_PROMPT),
-            (cv_text[:FALLBACK_LIMIT], SYSTEM_PROMPT + concise_suffix),
-        ]
+        payload = {
+            "model": GROQ_MODEL,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user",   "content": f"Extract the candidate data from the following documents:\n\n{text}"},
+            ],
+            "temperature": 0.1,
+            "max_tokens":  4096,
+        }
 
-        last_err = None
-        for text, system in attempts:
-            payload = {
-                "model": GROQ_MODEL,
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user",   "content": f"Extract the candidate data from the following documents:\n\n{text}"},
-                ],
-                "temperature": 0.1,
-                "max_tokens":  4096,
-            }
-            try:
-                resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=120)
-                resp.raise_for_status()
-                raw = resp.json()["choices"][0]["message"]["content"].strip()
-                raw = self._clean_json(raw)
-                data = json.loads(raw)
-                return CandidateData.from_dict(data)
-            except requests.HTTPError as e:
-                if e.response.status_code == 413:
-                    last_err = e
-                    print(f"[AgentClient] Groq 413 with {len(text)} chars, retrying with {FALLBACK_LIMIT}...")
-                    continue
-                raise
+        resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=120)
+        resp.raise_for_status()
 
-        raise last_err
+        raw = resp.json()["choices"][0]["message"]["content"].strip()
+        raw = self._clean_json(raw)
+        data = json.loads(raw)
+        return CandidateData.from_dict(data)
+
+    @staticmethod
+    def _compress_cv(text: str, max_chars: int) -> str:
+        """For CVs over max_chars, keep only the first description line per experience."""
+        import re
+        if len(text) <= max_chars:
+            return text
+
+        lines = text.split('\n')
+        compressed = []
+        in_description = False
+        desc_lines_kept = 0
+
+        for line in lines:
+            stripped = line.strip()
+
+            # New experience section (e.g. "5.1 –", "5.0–", "4 –")
+            if re.match(r'^\d+[\.\d]*\s*[–\-]', stripped):
+                in_description = False
+                desc_lines_kept = 0
+                compressed.append(line)
+
+            # Job description block starts
+            elif re.match(r'^Job [Dd]escription', stripped):
+                in_description = True
+                desc_lines_kept = 0
+                compressed.append(line)
+
+            elif in_description:
+                if not stripped:
+                    in_description = False
+                    compressed.append(line)
+                elif desc_lines_kept < 1:
+                    compressed.append(line)
+                    desc_lines_kept += 1
+                # else: skip verbose description lines
+
+            else:
+                # Structural lines: Title, Location, Time Period, etc.
+                compressed.append(line)
+
+        return '\n'.join(compressed)[:max_chars]
 
     @staticmethod
     def _clean_json(text: str) -> str:
