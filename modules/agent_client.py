@@ -209,7 +209,7 @@ class AgentClient:
         }
         payload = {"inputs": {"resume": cv_text}}
 
-        resp = requests.post(SAI_ENDPOINT, json=payload, headers=headers, timeout=120)
+        resp = requests.post(SAI_ENDPOINT, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
 
         body = resp.json()
