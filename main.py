@@ -45,8 +45,8 @@ async def extract_cv(files: List[UploadFile] = File(...)):
 
     # Character limits per document to stay within model context limits.
     # llama-3.3-70b-versatile supports 128k tokens; ~4 chars per token.
-    CV_CHAR_LIMIT  = 30_000
-    DOC_CHAR_LIMIT = 10_000
+    CV_CHAR_LIMIT  = 60_000
+    DOC_CHAR_LIMIT = 15_000
 
     # Extract and label text from each file
     # First file is always the CV/resume; the rest are supplementary documents

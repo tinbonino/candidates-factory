@@ -243,23 +243,47 @@ class AgentClient:
             "Authorization": f"Bearer {self._groq_key}",
             "Content-Type":  "application/json",
         }
-        payload = {
-            "model": GROQ_MODEL,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user",   "content": f"Extract the candidate data from the following documents:\n\n{cv_text}"},
-            ],
-            "temperature": 0.1,
-            "max_tokens":  4096,
-        }
 
-        resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=120)
-        resp.raise_for_status()
+        # First attempt: full text. If 413, retry with 20k chars and concise descriptions.
+        FALLBACK_LIMIT = 20_000
+        concise_suffix = (
+            "\n\nIMPORTANT: The CV text was truncated due to length. "
+            "Include ALL work experiences you can find, even partial ones. "
+            "For each experience use at most 1 sentence for description and skip achievements. "
+            "It is better to list more experiences with less detail than fewer with full detail."
+        )
 
-        raw = resp.json()["choices"][0]["message"]["content"].strip()
-        raw = self._clean_json(raw)
-        data = json.loads(raw)
-        return CandidateData.from_dict(data)
+        attempts = [
+            (cv_text, SYSTEM_PROMPT),
+            (cv_text[:FALLBACK_LIMIT], SYSTEM_PROMPT + concise_suffix),
+        ]
+
+        last_err = None
+        for text, system in attempts:
+            payload = {
+                "model": GROQ_MODEL,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user",   "content": f"Extract the candidate data from the following documents:\n\n{text}"},
+                ],
+                "temperature": 0.1,
+                "max_tokens":  4096,
+            }
+            try:
+                resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=120)
+                resp.raise_for_status()
+                raw = resp.json()["choices"][0]["message"]["content"].strip()
+                raw = self._clean_json(raw)
+                data = json.loads(raw)
+                return CandidateData.from_dict(data)
+            except requests.HTTPError as e:
+                if e.response.status_code == 413:
+                    last_err = e
+                    print(f"[AgentClient] Groq 413 with {len(text)} chars, retrying with {FALLBACK_LIMIT}...")
+                    continue
+                raise
+
+        raise last_err
 
     @staticmethod
     def _clean_json(text: str) -> str:
