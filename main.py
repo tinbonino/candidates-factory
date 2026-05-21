@@ -43,10 +43,10 @@ async def extract_cv(files: List[UploadFile] = File(...)):
                 detail=f"Only PDF files are accepted. Got: {f.filename}"
             )
 
-    # Character limits per document to stay within Groq's payload limit.
-    # ~20k chars ≈ 5k tokens. CV gets more budget than supplementary docs.
-    CV_CHAR_LIMIT  = 20_000
-    DOC_CHAR_LIMIT = 10_000
+    # Character limits per document to stay within model context limits.
+    # llama-3.3-70b-versatile supports 128k tokens; ~4 chars per token.
+    CV_CHAR_LIMIT  = 80_000
+    DOC_CHAR_LIMIT = 20_000
 
     # Extract and label text from each file
     # First file is always the CV/resume; the rest are supplementary documents

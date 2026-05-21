@@ -250,7 +250,7 @@ class AgentClient:
                 {"role": "user",   "content": f"Extract the candidate data from the following documents:\n\n{cv_text}"},
             ],
             "temperature": 0.1,
-            "max_tokens":  4096,
+            "max_tokens":  8192,
         }
 
         resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=120)
