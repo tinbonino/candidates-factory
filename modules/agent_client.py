@@ -273,6 +273,9 @@ class AgentClient:
         if len(text) <= max_chars:
             return text
 
+        # Any Unicode dash variant pdfplumber might produce
+        DASH = r'[\-‒–—―]'
+
         lines = text.split('\n')
         compressed = []
         in_description = False
@@ -281,32 +284,39 @@ class AgentClient:
         for line in lines:
             stripped = line.strip()
 
-            # New experience section (e.g. "5.1 –", "5.0–", "4 –")
-            if re.match(r'^\d+[\.\d]*\s*[–\-]', stripped):
+            if not stripped:
+                in_description = False
+                compressed.append(line)
+                continue
+
+            # Section header: starts with digit(s) and has a dash in first 10 chars
+            # e.g. "4 –", "5.0–", "5.1 – Chimica"
+            is_section = bool(re.match(r'^\d', stripped)) and bool(
+                re.search(DASH, stripped[:10])
+            )
+
+            # Job description marker
+            is_job_desc = bool(re.match(r'^Job\s+[Dd]escription', stripped))
+
+            if is_section:
                 in_description = False
                 desc_lines_kept = 0
                 compressed.append(line)
-
-            # Job description block starts
-            elif re.match(r'^Job [Dd]escription', stripped):
+            elif is_job_desc:
                 in_description = True
                 desc_lines_kept = 0
                 compressed.append(line)
-
             elif in_description:
-                if not stripped:
-                    in_description = False
-                    compressed.append(line)
-                elif desc_lines_kept < 1:
+                if desc_lines_kept < 1:
                     compressed.append(line)
                     desc_lines_kept += 1
-                # else: skip verbose description lines
-
+                # else: skip
             else:
-                # Structural lines: Title, Location, Time Period, etc.
                 compressed.append(line)
 
-        return '\n'.join(compressed)[:max_chars]
+        result = '\n'.join(compressed)
+        print(f"[AgentClient] CV compressed: {len(text)} → {len(result)} chars")
+        return result[:max_chars]
 
     @staticmethod
     def _clean_json(text: str) -> str:
