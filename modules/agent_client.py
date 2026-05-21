@@ -258,8 +258,16 @@ class AgentClient:
             "max_tokens":  4096,
         }
 
-        resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=120)
-        resp.raise_for_status()
+        for attempt in range(2):
+            resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=120)
+            if resp.status_code == 429 and attempt == 0:
+                wait = int(resp.headers.get("retry-after", 20))
+                wait = min(wait, 25)
+                print(f"[AgentClient] Groq rate limited, retrying in {wait}s")
+                import time; time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            break
 
         raw = resp.json()["choices"][0]["message"]["content"].strip()
         raw = self._clean_json(raw)
