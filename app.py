@@ -69,7 +69,8 @@ def _make_zip(pdfs, display_name) -> bytes:
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(f"infographic_{safe}.pdf",     pdfs["infographic"])
         zf.writestr(f"submission_form_{safe}.pdf",  pdfs["submission_form"])
-        zf.writestr(f"resume_branded_{safe}.pdf",   pdfs["resume_branded"])
+        resume_safe = f"Stefanini_resume_{display_name.replace(' ', '_').replace('.', '')}"
+        zf.writestr(f"{resume_safe}.pdf",            pdfs["resume_branded"])
     buf.seek(0)
     return buf.getvalue()
 
@@ -111,7 +112,7 @@ def _download_buttons(pdfs, display_name):
     c3.download_button(
         "📄 Branded Resume",
         data=pdfs["resume_branded"],
-        file_name=f"resume_branded_{safe}.pdf",
+        file_name=f"Stefanini_resume_{display_name.replace(' ', '_').replace('.', '')}.pdf",
         mime="application/pdf",
         use_container_width=True,
         type="primary",
