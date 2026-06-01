@@ -231,6 +231,32 @@ if agent_configured:
             with st.expander("Ver datos extraídos", expanded=False):
                 st.json(json_data)
 
+        # ── Recruiter fields ──────────────────────────────────────────────
+        STATUS_OPTIONS = [
+            "Sourcing",
+            "LDH Interviewed",
+            "Waiting BUL Feedback",
+            "Rejected",
+            "On Hold",
+            "Hired",
+            "Waiting Final Decision",
+            "Interview with Client",
+            "Submitted to Client",
+        ]
+        col_status, _ = st.columns([2, 1])
+        col_status.selectbox(
+            "Status",
+            options=STATUS_OPTIONS,
+            index=0,
+            key="candidate_status",
+        )
+        st.text_area(
+            "Comments",
+            placeholder="Notas opcionales del recruiter...",
+            key="candidate_comments",
+        )
+        st.divider()
+
         _download_buttons(st.session_state["pdfs"], st.session_state["display_name"])
 
         st.divider()
