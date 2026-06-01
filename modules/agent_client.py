@@ -24,6 +24,7 @@ OUTPUT RULES:
 - All text fields must be in English (translate if the CV is in another language)
 - Never include contact information: no emails, phone numbers, LinkedIn URLs, or physical addresses
 - If a field is not found in the CV, infer it where possible or return null
+- NEVER use placeholder text such as "Not provided", "N/A", "Unknown", "Not specified" — always return null for missing fields
 
 ANONYMIZATION:
 - last_name_initial must be the first letter of last_name followed by a period (e.g. "Martinez" → "M.")
@@ -122,9 +123,11 @@ class CandidateData:
 
     @property
     def display_name(self) -> str:
-        if self.last_name_initial:
-            return f"{self.first_name} {self.last_name_initial}"
-        return self.first_name
+        name    = self.first_name or ""
+        initial = self.last_name_initial or ""
+        if name and initial:
+            return f"{name} {initial}"
+        return name or initial or "Candidate"
 
     def _lang_level(self, lang_name: str) -> str:
         for l in self.languages:
