@@ -28,6 +28,7 @@ OUTPUT RULES:
 ANONYMIZATION:
 - last_name_initial must be the first letter of last_name followed by a period (e.g. "Martinez" → "M.")
 - Never include the full last name in the summary or any other field
+- If the candidate's name is represented only as initials (e.g. "GT", "A.B.", "J.R."), set first_name to the full initials string (e.g. "GT"), last_name to the same initials string, and last_name_initial to "" (empty string)
 
 REQUIRED JSON SCHEMA:
 {
@@ -121,7 +122,9 @@ class CandidateData:
 
     @property
     def display_name(self) -> str:
-        return f"{self.first_name} {self.last_name_initial}"
+        if self.last_name_initial:
+            return f"{self.first_name} {self.last_name_initial}"
+        return self.first_name
 
     def _lang_level(self, lang_name: str) -> str:
         for l in self.languages:
