@@ -54,8 +54,8 @@ REQUIRED JSON SCHEMA:
       "company": "string",
       "role": "string",
       "period": "string",
-      "description": "string — one to two sentence summary of responsibilities",
-      "achievements": ["string — specific, quantified achievements when available"]
+      "description": "string — full description of responsibilities copied faithfully from the CV, preserving ALL details without summarizing or omitting anything",
+      "achievements": ["string — include ALL bullet points, achievements, and responsibilities listed in the CV for this role, do not skip any"]
     }
   ],
   "education": [{"institution": "string", "degree": "string", "year": "string"}],
@@ -261,7 +261,7 @@ class AgentClient:
                 {"role": "user",   "content": f"Extract the candidate data from the following documents:\n\n{text}"},
             ],
             "temperature": 0.1,
-            "max_tokens":  4096,
+            "max_tokens":  8000,
         }
 
         for attempt in range(2):
