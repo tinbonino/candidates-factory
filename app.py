@@ -50,28 +50,22 @@ st.markdown("""
 
 # ── Branded header ─────────────────────────────────────────────────────────────
 _logo_path = os.path.join(os.path.dirname(__file__), "logos", "StefaniniGroup_Logo-02.png")
-_logo_html = ""
+_logo_tag = ""
 if os.path.exists(_logo_path):
     with open(_logo_path, "rb") as _f:
         _b64 = base64.b64encode(_f.read()).decode()
-    _logo_html = f'<img src="data:image/png;base64,{_b64}" style="height:48px;">'
+    _logo_tag = f'<img src="data:image/png;base64,{_b64}" style="height:48px; flex-shrink:0;">'
 
-st.markdown(f"""
-<div style="
-    background-color: #003087;
-    padding: 18px 28px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    margin-bottom: 8px;
-">
-    {_logo_html}
-    <div style="margin-left: 20px; color: white; border-left: 3px solid #FF6B00; padding-left: 16px;">
-        <div style="font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">Candidates Factory</div>
-        <div style="font-size: 12px; opacity: 0.80; margin-top: 2px;">LDH Latam Digital Hub by Stefanini</div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+_header_html = (
+    '<div style="background-color:#003087;padding:18px 28px;border-radius:8px;'
+    'display:flex;align-items:center;margin-bottom:8px;">'
+    + _logo_tag
+    + '<div style="margin-left:20px;color:white;border-left:3px solid #FF6B00;padding-left:16px;">'
+    + '<div style="font-size:20px;font-weight:700;letter-spacing:0.5px;">Candidates Factory</div>'
+    + '<div style="font-size:12px;opacity:0.80;margin-top:2px;">LDH Latam Digital Hub by Stefanini</div>'
+    + '</div></div>'
+)
+st.markdown(_header_html, unsafe_allow_html=True)
 
 # ── User info + logout ────────────────────────────────────────────────────────
 col1, col2 = st.columns([4, 1])
