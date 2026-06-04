@@ -1,5 +1,6 @@
 import io
 import os
+import base64
 import zipfile
 import tempfile
 import streamlit as st
@@ -17,21 +18,66 @@ st.set_page_config(
 from modules.auth import require_auth, logout
 user = require_auth()
 
-# ── Branding ──────────────────────────────────────────────────────────────────
-logo_path = os.path.join(os.path.dirname(__file__), "assets", "ldh_logo.jpg")
-if os.path.exists(logo_path):
-    st.image(logo_path, width=180)
+# ── Brand CSS ─────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+    /* Primary buttons → Stefanini orange */
+    .stButton > button[kind="primary"] {
+        background-color: #FF6B00 !important;
+        border-color:     #FF6B00 !important;
+        color: white !important;
+    }
+    .stButton > button[kind="primary"]:hover {
+        background-color: #e05e00 !important;
+        border-color:     #e05e00 !important;
+    }
+    /* Download buttons */
+    .stDownloadButton > button {
+        background-color: #003087 !important;
+        border-color:     #003087 !important;
+        color: white !important;
+    }
+    .stDownloadButton > button:hover {
+        background-color: #002060 !important;
+        border-color:     #002060 !important;
+    }
+    /* Headings */
+    h1, h2, h3 { color: #003087 !important; }
+    /* Divider accent */
+    hr { border-color: #FF6B00 !important; }
+</style>
+""", unsafe_allow_html=True)
 
-st.title("Candidates Factory")
-st.caption("LDH Latam Digital Hub by Stefanini — CV Processing Automation")
+# ── Branded header ─────────────────────────────────────────────────────────────
+_logo_path = os.path.join(os.path.dirname(__file__), "logos", "StefaniniGroup_Logo-02.png")
+_logo_html = ""
+if os.path.exists(_logo_path):
+    with open(_logo_path, "rb") as _f:
+        _b64 = base64.b64encode(_f.read()).decode()
+    _logo_html = f'<img src="data:image/png;base64,{_b64}" style="height:48px;">'
+
+st.markdown(f"""
+<div style="
+    background-color: #003087;
+    padding: 18px 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+">
+    {_logo_html}
+    <div style="margin-left: 20px; color: white; border-left: 3px solid #FF6B00; padding-left: 16px;">
+        <div style="font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">Candidates Factory</div>
+        <div style="font-size: 12px; opacity: 0.80; margin-top: 2px;">LDH Latam Digital Hub by Stefanini</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ── User info + logout ────────────────────────────────────────────────────────
 col1, col2 = st.columns([4, 1])
 col1.caption(f"👤 {user['name']}")
 if col2.button("Cerrar sesión", use_container_width=True):
     logout()
-
-st.divider()
 
 # ── Config ────────────────────────────────────────────────────────────────────
 API_URL          = os.getenv("API_URL", "").rstrip("/")
@@ -371,5 +417,8 @@ else:
             _clear_results()
             st.rerun()
 
-st.divider()
-st.caption("LDH Latam Digital Hub by Stefanini — Confidential")
+st.markdown("""
+<div style="text-align:center; color:#888; font-size:11px; margin-top:16px; padding-top:8px; border-top: 1px solid #FF6B00;">
+    LDH Latam Digital Hub by Stefanini — Confidential
+</div>
+""", unsafe_allow_html=True)
