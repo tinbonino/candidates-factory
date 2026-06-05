@@ -60,7 +60,7 @@ REQUIRED JSON SCHEMA:
   ],
   "education": [{"institution": "string", "degree": "string", "year": "string"}],
   "certifications": ["string"],
-  "years_of_experience": "number",
+  "years_of_experience": "number — calculate by subtracting the earliest work experience start date from today's date (or the most recent end date). Sum overlapping roles only once. Always round DOWN to the nearest whole number. Example: Jan 2020 to Jun 2026 = 6 years.",
   "availability": "string or null",
   "salary_expectation": "string or null",
   "current_location": "string or null",

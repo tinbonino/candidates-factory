@@ -190,7 +190,7 @@ def _draw_header(c, candidate, logo_path):
     # Summary
     summary_y = name_y - 16 * mm
     avail_w = PW - text_x - M
-    summary_h = _para(c, candidate.summary[:300], text_x, summary_y,
+    summary_h = _para(c, candidate.summary[:500], text_x, summary_y,
                       avail_w, 20 * mm, font="Helvetica", size=8,
                       color=C_GRAY, leading=11.5)
 
@@ -278,10 +278,9 @@ def _draw_left(c, candidate):
                 break
             c.setFillColor(C_ORANGE)
             c.circle(SB_X + 2 * mm, y + 1 * mm, 1.8 * mm, fill=1, stroke=0)
-            c.setFont("Helvetica", 8)
-            c.setFillColor(C_DARK)
-            c.drawString(SB_X + 5.5 * mm, y, cert[:30])
-            y -= 6 * mm
+            h = _para(c, cert, SB_X + 5.5 * mm, y + 3 * mm,
+                      SB_W - 5.5 * mm, 10 * mm, font="Helvetica", size=8, color=C_DARK)
+            y -= max(h, 5 * mm) + 1 * mm
         y -= 2 * mm
 
     # ── Overall rating bar ────────────────────────────────────────────────────
@@ -442,7 +441,20 @@ def _draw_tech_section(c, candidate):
         # Skill name (vertically centred)
         c.setFont("Helvetica-Bold", 8.5)
         c.setFillColor(C_DARK)
-        c.drawString(col_x, ry_mid - 1.5 * mm, skill[:24])
+        # Shrink font until it fits the column width
+        sk_label = skill
+        sk_size  = 8.5
+        for fs in (8.5, 8.0, 7.5, 7.0):
+            if c.stringWidth(sk_label, "Helvetica-Bold", fs) <= col_w_sk - 2 * mm:
+                sk_size = fs
+                break
+        else:
+            # Still too long — truncate with ellipsis
+            while c.stringWidth(sk_label + "…", "Helvetica-Bold", 7.0) > col_w_sk - 2 * mm and len(sk_label) > 1:
+                sk_label = sk_label[:-1]
+            sk_label += "…"
+        c.setFont("Helvetica-Bold", sk_size)
+        c.drawString(col_x, ry_mid - 1.5 * mm, sk_label)
 
         # Gradient bar (centred vertically in row)
         bar_y = ry_mid - bar_h / 2
