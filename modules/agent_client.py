@@ -1,5 +1,6 @@
 """
-AgentClient — uses Groq (llama-3.3-70b-versatile) to extract structured candidate data from CV text.
+AgentClient — extracts structured candidate data from CV text.
+Provider chain: Gemini (primary) → SAI → Groq (fallback).
 """
 import json
 import os
@@ -188,13 +189,26 @@ SAI_ENDPOINT = os.getenv(
 )
 SAI_API_KEY = os.getenv("SAI_API_KEY", "")
 
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/"
+    f"{GEMINI_MODEL}:generateContent"
+)
+
 
 class AgentClient:
     def __init__(self):
-        self._groq_key = os.getenv("GROQ_API_KEY", "")
+        self._groq_key   = os.getenv("GROQ_API_KEY", "")
+        self._gemini_key = os.getenv("GEMINI_API_KEY", "")
 
     def extract_candidate_data(self, cv_text: str) -> CandidateData:
-        """Try SAI first; fall back to Groq if SAI fails for any reason."""
+        """Provider chain: Gemini → SAI → Groq. Falls through on any failure."""
+
+        if self._gemini_key:
+            try:
+                return self._extract_via_gemini(cv_text)
+            except Exception as e:
+                print(f"[AgentClient] Gemini failed ({e}), trying next provider.")
 
         if SAI_API_KEY:
             try:
@@ -203,9 +217,40 @@ class AgentClient:
                 print(f"[AgentClient] SAI failed ({e}), falling back to Groq.")
 
         if not self._groq_key:
-            raise ValueError("No AI provider available: SAI_API_KEY and GROQ_API_KEY are both missing.")
+            raise ValueError(
+                "No AI provider available: GEMINI_API_KEY, SAI_API_KEY and GROQ_API_KEY are all missing."
+            )
 
         return self._extract_via_groq(cv_text)
+
+    # ── Gemini ──────────────────────────────────────────────────────────────
+    def _extract_via_gemini(self, cv_text: str) -> CandidateData:
+        # Gemini has a 1M-token context window — no compression needed.
+        payload = {
+            "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+            "contents": [
+                {"parts": [{"text": f"Extract the candidate data from the following documents:\n\n{cv_text}"}]}
+            ],
+            "generationConfig": {
+                "temperature": 0.1,
+                "maxOutputTokens": 8192,
+                "responseMimeType": "application/json",
+            },
+        }
+        resp = requests.post(
+            GEMINI_URL,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            params={"key": self._gemini_key},
+            timeout=90,
+        )
+        resp.raise_for_status()
+
+        body = resp.json()
+        raw = body["candidates"][0]["content"]["parts"][0]["text"]
+        raw = self._clean_json(raw)
+        data = json.loads(raw)
+        return CandidateData.from_dict(data)
 
     # ── SAI ───────────────────────────────────────────────────────────────
     def _extract_via_sai(self, cv_text: str) -> CandidateData:
