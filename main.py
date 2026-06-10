@@ -81,4 +81,11 @@ async def extract_cv(files: List[UploadFile] = File(...)):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Agent extraction failed: {e}")
 
-    return JSONResponse(asdict(candidate))
+    try:
+        return JSONResponse(asdict(candidate))
+    except Exception as e:
+        import traceback
+        raise HTTPException(
+            status_code=500,
+            detail=f"Response serialization failed: {e}\n{traceback.format_exc()[-1500:]}",
+        )
