@@ -97,10 +97,11 @@ def _field_row(label: str, value: str) -> Table:
     value_style = ParagraphStyle(
         "fv", fontName="Helvetica", fontSize=8.5, textColor=DARK, leading=12
     )
-    border = {"style": "LINEBELOW", "color": colors.HexColor("#DDDDDD")}
     t = Table(
         [[Paragraph(label, label_style), Paragraph(value or "—", value_style)]],
         colWidths=[LABEL_W, VALUE_W],
+        splitByRow=1,
+        splitInRow=1,   # allow a single tall cell to split across pages
     )
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, 0), LIGHT_GRAY),
@@ -156,18 +157,19 @@ def generate(candidate, output_path: str):
         if section["fields"]:
             for f in section["fields"]:
                 rows.append(_field_row(f["label"], _resolve(candidate, f["key"])))
+            # Small sections stay together on one page
+            story.append(KeepTogether(rows))
         else:
-            # Section 5: Professional Experience — rendered as sub-rows
+            # Section 5: Professional Experience — can span many pages, so
+            # never wrap it in KeepTogether and split each experience into
+            # one row per bullet so rows can flow across page breaks.
+            story.extend(rows)
             for exp in candidate.experience:
                 role_label = f"{exp.get('role','')}\n{exp.get('company','')}  |  {exp.get('period','')}"
-                desc_parts = []
-                if exp.get("description"):
-                    desc_parts.append(exp["description"])
+                story.append(_field_row(role_label, exp.get("description") or "—"))
                 for ach in exp.get("achievements", []):
-                    desc_parts.append(f"• {ach}")
-                rows.append(_field_row(role_label, "\n".join(desc_parts)))
+                    story.append(_field_row("", f"• {ach}"))
 
-        story.append(KeepTogether(rows))
         story.append(Spacer(1, 3 * mm))
 
     # Footer

@@ -324,14 +324,21 @@ class AgentClient:
                 "thinkingConfig": {"thinkingBudget": 0},
             },
         }
-        resp = requests.post(
-            GEMINI_URL,
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            params={"key": self._gemini_key},
-            timeout=90,
-        )
-        resp.raise_for_status()
+        for attempt in range(2):
+            resp = requests.post(
+                GEMINI_URL,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                params={"key": self._gemini_key},
+                timeout=90,
+            )
+            if resp.status_code in (429, 500, 503) and attempt == 0:
+                import time
+                print(f"[AgentClient] Gemini transient {resp.status_code}, retrying in 5s")
+                time.sleep(5)
+                continue
+            resp.raise_for_status()
+            break
 
         body = resp.json()
         raw = body["candidates"][0]["content"]["parts"][0]["text"]
