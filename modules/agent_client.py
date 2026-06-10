@@ -189,7 +189,7 @@ SAI_ENDPOINT = os.getenv(
 )
 SAI_API_KEY = os.getenv("SAI_API_KEY", "")
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
     f"{GEMINI_MODEL}:generateContent"
@@ -319,8 +319,9 @@ class AgentClient:
             ],
             "generationConfig": {
                 "temperature": 0.1,
-                "maxOutputTokens": 8192,
+                "maxOutputTokens": 32768,
                 "responseMimeType": "application/json",
+                "thinkingConfig": {"thinkingBudget": 0},
             },
         }
         resp = requests.post(
