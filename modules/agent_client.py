@@ -290,24 +290,32 @@ class AgentClient:
         return candidate
 
     def _extract(self, cv_text: str) -> CandidateData:
+        errors = []
+
         if self._gemini_key:
             try:
                 return self._extract_via_gemini(cv_text)
             except Exception as e:
+                errors.append(f"Gemini: {e}")
                 print(f"[AgentClient] Gemini failed ({e}), trying next provider.")
 
         if SAI_API_KEY:
             try:
                 return self._extract_via_sai(cv_text)
             except Exception as e:
+                errors.append(f"SAI: {e}")
                 print(f"[AgentClient] SAI failed ({e}), falling back to Groq.")
 
         if not self._groq_key:
             raise ValueError(
-                "No AI provider available: GEMINI_API_KEY, SAI_API_KEY and GROQ_API_KEY are all missing."
+                "No AI provider available. " + (" | ".join(errors) if errors else "No API keys configured.")
             )
 
-        return self._extract_via_groq(cv_text)
+        try:
+            return self._extract_via_groq(cv_text)
+        except Exception as e:
+            errors.append(f"Groq: {e}")
+            raise RuntimeError("All providers failed → " + " | ".join(errors)) from e
 
     # ── Gemini ──────────────────────────────────────────────────────────────
     def _extract_via_gemini(self, cv_text: str) -> CandidateData:
@@ -389,8 +397,9 @@ class AgentClient:
             "Content-Type":  "application/json",
         }
 
-        # For very long CVs, compress before sending to avoid 413.
-        CHAR_LIMIT = 20_000
+        # Groq free tier: ~12k tokens/minute TOTAL (input + output).
+        # Budget: system ~2k + input ~3k (12k chars) + output 6k ≈ 11k.
+        CHAR_LIMIT = 12_000
         text = self._compress_cv(cv_text, CHAR_LIMIT)
 
         payload = {
@@ -400,7 +409,7 @@ class AgentClient:
                 {"role": "user",   "content": f"Extract the candidate data from the following documents:\n\n{text}"},
             ],
             "temperature": 0.1,
-            "max_tokens":  8000,
+            "max_tokens":  6000,
         }
 
         for attempt in range(2):
