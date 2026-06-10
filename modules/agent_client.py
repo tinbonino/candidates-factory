@@ -196,6 +196,82 @@ GEMINI_URL = (
 )
 
 
+MONTHS = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+    # Spanish / Portuguese variants
+    "ene": 1, "abr": 4, "ago": 8, "dic": 12, "fev": 2, "mai": 5, "set": 9, "out": 10, "dez": 12,
+}
+
+
+def _parse_period_to_months(period: str) -> tuple[int, int] | None:
+    """Parse a period string like 'Jan. 2023 – Apr. 2024' or '2021 – Present'
+    into (start, end) absolute month numbers (year*12 + month). Returns None if unparseable."""
+    import re
+    from datetime import date
+
+    if not period:
+        return None
+
+    now = date.today()
+    now_months = now.year * 12 + now.month
+
+    # Split on any dash variant or 'to'
+    parts = re.split(r"\s*(?:[\-‒–—―]|to|a)\s+", period.strip(), maxsplit=1, flags=re.IGNORECASE)
+    if len(parts) != 2:
+        # Single date — can't compute a range
+        return None
+
+    def parse_point(s: str, default_month: int) -> int | None:
+        s = s.strip().lower()
+        if any(k in s for k in ("present", "current", "now", "actual", "atual", "presente", "hoy", "hoje", "today")):
+            return now_months
+        # Month name + year
+        m = re.search(r"([a-z]{3,})\.?\s*,?\s*(\d{4})", s)
+        if m:
+            mon = MONTHS.get(m.group(1)[:3])
+            if mon:
+                return int(m.group(2)) * 12 + mon
+        # Numeric MM/YYYY or MM-YYYY
+        m = re.search(r"(\d{1,2})\s*[/\-.]\s*(\d{4})", s)
+        if m and 1 <= int(m.group(1)) <= 12:
+            return int(m.group(2)) * 12 + int(m.group(1))
+        # Bare year
+        m = re.search(r"(\d{4})", s)
+        if m:
+            return int(m.group(1)) * 12 + default_month
+        return None
+
+    start = parse_point(parts[0], default_month=1)
+    end   = parse_point(parts[1], default_month=12)
+    if start is None or end is None or end < start:
+        return None
+    return (start, min(end, now_months))
+
+
+def _compute_years_of_experience(experience: list[dict]) -> int | None:
+    """Merge all experience periods (overlaps counted once) and return total years, floored."""
+    intervals = []
+    for exp in experience or []:
+        rng = _parse_period_to_months(exp.get("period", ""))
+        if rng:
+            intervals.append(rng)
+
+    if not intervals:
+        return None
+
+    intervals.sort()
+    merged = [intervals[0]]
+    for start, end in intervals[1:]:
+        if start <= merged[-1][1] + 1:   # contiguous or overlapping
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+
+    total_months = sum(end - start + 1 for start, end in merged)
+    return total_months // 12
+
+
 class AgentClient:
     def __init__(self):
         self._groq_key   = os.getenv("GROQ_API_KEY", "")
@@ -203,7 +279,17 @@ class AgentClient:
 
     def extract_candidate_data(self, cv_text: str) -> CandidateData:
         """Provider chain: Gemini → SAI → Groq. Falls through on any failure."""
+        candidate = self._extract(cv_text)
 
+        # LLMs are unreliable at date arithmetic — recompute deterministically
+        # from the experience periods whenever possible.
+        computed = _compute_years_of_experience(candidate.experience)
+        if computed is not None and computed > 0:
+            candidate.years_of_experience = computed
+
+        return candidate
+
+    def _extract(self, cv_text: str) -> CandidateData:
         if self._gemini_key:
             try:
                 return self._extract_via_gemini(cv_text)
