@@ -185,12 +185,12 @@ def _draw_header(c, candidate, logo_path):
     # Title
     c.setFont("Helvetica-BoldOblique", 11)
     c.setFillColor(C_ORANGE)
-    c.drawString(text_x, name_y - 8 * mm, candidate.title)
+    c.drawString(text_x, name_y - 8 * mm, candidate.title or "")
 
     # Summary
     summary_y = name_y - 16 * mm
     avail_w = PW - text_x - M
-    summary_h = _para(c, candidate.summary[:500], text_x, summary_y,
+    summary_h = _para(c, (candidate.summary or "")[:500], text_x, summary_y,
                       avail_w, 20 * mm, font="Helvetica", size=8,
                       color=C_GRAY, leading=11.5)
 

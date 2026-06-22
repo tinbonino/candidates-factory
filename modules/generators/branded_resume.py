@@ -90,7 +90,7 @@ def _header(story, candidate, logo_path):
     else:
         story.append(Paragraph(candidate.display_name, name_style))
 
-    story.append(Paragraph(candidate.title, title_style))
+    story.append(Paragraph(candidate.title or "", title_style))
     if candidate.years_of_experience:
         story.append(
             Paragraph(f"{candidate.years_of_experience} years of experience", yoe_style)
@@ -143,7 +143,7 @@ def generate(candidate, output_path: str):
 
     # Summary
     story.extend(_section("Professional Summary"))
-    story.append(Paragraph(candidate.summary, _body(9)))
+    story.append(Paragraph(candidate.summary or "", _body(9)))
     story.append(Spacer(1, 5 * mm))
 
     # Skills
