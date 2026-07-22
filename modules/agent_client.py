@@ -62,6 +62,7 @@ REQUIRED JSON SCHEMA:
   "education": [{"institution": "string", "degree": "string", "year": "string"}],
   "certifications": ["string"],
   "years_of_experience": "number — calculate by subtracting the earliest work experience start date from today's date (or the most recent end date). Sum overlapping roles only once. Always round DOWN to the nearest whole number. Example: Jan 2020 to Jun 2026 = 6 years.",
+  "stated_years_of_experience": "number or null — ONLY if the CV explicitly states a total number of years of experience in free text (e.g. 'over 12 years in IT', '10+ years of experience'). Extract that stated number as an integer (round down). Prefer the broadest total professional/IT experience figure if several are mentioned. Return null if the CV never states a total explicitly — do NOT compute or estimate it.",
   "availability": "string or null",
   "salary_expectation": "string or null",
   "current_location": "string or null",
@@ -117,6 +118,7 @@ class CandidateData:
     education: list[dict] = field(default_factory=list)
     certifications: list[str] = field(default_factory=list)
     years_of_experience: int = 0
+    stated_years_of_experience: Optional[int] = None
     availability: Optional[str] = None
     salary_expectation: Optional[str] = None
     professional_badges: list[dict] = field(default_factory=list)
@@ -176,6 +178,11 @@ class CandidateData:
             education=data.get("education", []),
             certifications=data.get("certifications", []),
             years_of_experience=int(data.get("years_of_experience") or 0),
+            stated_years_of_experience=(
+                int(data["stated_years_of_experience"])
+                if data.get("stated_years_of_experience") not in (None, "")
+                else None
+            ),
             availability=data.get("availability"),
             salary_expectation=data.get("salary_expectation"),
             professional_badges=data.get("professional_badges", []),
@@ -282,10 +289,19 @@ class AgentClient:
         candidate = self._extract(cv_text)
 
         # LLMs are unreliable at date arithmetic — recompute deterministically
-        # from the experience periods whenever possible.
+        # from the experience periods whenever possible. This is a lower bound:
+        # it only covers the roles actually listed in the experience section.
         computed = _compute_years_of_experience(candidate.experience)
         if computed is not None and computed > 0:
             candidate.years_of_experience = computed
+
+        # The listed roles may not span the candidate's full career (older jobs
+        # are often condensed into the summary). If the CV explicitly states a
+        # larger total (e.g. "over 12 years in IT"), trust that stated figure so
+        # the header doesn't understate seniority.
+        stated = candidate.stated_years_of_experience
+        if stated and stated > candidate.years_of_experience:
+            candidate.years_of_experience = stated
 
         return candidate
 
