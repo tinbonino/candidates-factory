@@ -1,5 +1,9 @@
 streamlit>=1.35.0
 streamlit-authenticator>=0.4.0
+# Pin Starlette below 1.4.0: 1.4.0 (2026-08-05) added a required
+# `thread_minimum_size` kwarg to GZipResponder that Streamlit's bundled gzip
+# middleware does not pass, crashing the app on startup ("Error running app").
+starlette<1.4.0
 fastapi>=0.111.0
 uvicorn>=0.30.0
 python-multipart>=0.0.9
