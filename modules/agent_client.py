@@ -94,9 +94,9 @@ QUALITATIVE ANALYSIS RULES:
 # Tailors emphasis toward the role without ever fabricating anything.
 JD_TAILORING_RULES = """A TARGET JOB DESCRIPTION is provided below. Tailor the structured output so it highlights what this role is looking for, following these rules STRICTLY:
 
-- Rewrite `summary`, `core_expertise`, `technical_highlights`, `key_strengths` and `integration_skills` to foreground the candidate's REAL experience and skills that best match the job description.
-- Order the `skills` array so skills matching the job description appear FIRST. Keep every skill — never drop skills and never add skills the candidate does not actually have.
-- Keep the `experience` roles in their original reverse-chronological order — do NOT reorder roles by relevance. Within each role, order the `achievements` so the most job-relevant ones come first. Keep EVERY role and EVERY achievement.
+- Rewrite `summary`, `core_expertise`, `technical_highlights`, `key_strengths` and `integration_skills` to foreground the candidate's REAL experience and skills that best match the job description. IMPORTANT: the summary must still follow all schema constraints — do NOT state a specific total number of years of experience (avoid 'X years of experience', 'over N years', etc.). Describe seniority qualitatively.
+- Reorder the `skills` array so skills matching the job description appear FIRST. Do NOT add any skill the candidate does not have, do NOT remove any skill, and do NOT exceed the 8-to-12 item limit defined in the schema. If the CV contains more than 12 skills, keep only the 12 most relevant to the job description.
+- Keep the `experience` array STRUCTURALLY IDENTICAL to the CV: the same number of roles, the same companies, the same role titles, the same date periods. Do NOT split a single role into multiple entries, do NOT merge roles, do NOT add or remove any role. Only reorder the `achievements` array within each role so the most job-relevant ones come first. Keep EVERY achievement.
 - Orient `professional_badges` and `qualitative_profile` toward the competencies the job description emphasizes, using only evidence already present in the CV.
 - ABSOLUTE INTEGRITY RULE: never invent, exaggerate, or add experience, skills, tools, certifications, or achievements the candidate does not have. Reorganizing and emphasizing real content is allowed; fabricating is forbidden.
 - Do NOT mention the job description, the tailoring, the target role, or the hiring process in any output field. The result must still read as a neutral, truthful CV."""
