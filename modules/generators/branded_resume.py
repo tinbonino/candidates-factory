@@ -189,12 +189,12 @@ def generate(candidate, output_path: str):
         story.extend(_section("Education"))
         for edu in candidate.education:
             story.append(Paragraph(edu.get("degree", ""), _bold(9)))
-            story.append(
-                Paragraph(
-                    f"{edu.get('institution','')}  —  {edu.get('year','')}",
-                    _body(8),
-                )
-            )
+            inst = edu.get("institution", "") or ""
+            year = edu.get("year", "") or ""
+            if year.strip().lower() in ("", "none", "n/a", "unknown", "not specified"):
+                year = ""
+            edu_line = f"{inst}  —  {year}" if year else inst
+            story.append(Paragraph(edu_line, _body(8)))
             story.append(Spacer(1, 3 * mm))
 
     # Certifications
