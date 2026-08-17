@@ -199,8 +199,20 @@ if agent_configured:
         label_visibility="collapsed",
     )
 
-    # Reset results when file selection changes
+    # Optional Job Description — tailors the resume/infographic to the role
+    st.markdown("### Job Description (opcional)")
+    st.caption("Si subís la búsqueda, se reorganiza y destaca la experiencia relevante del candidato para ese rol.")
+    jd_file = st.file_uploader(
+        "Job Description PDF", type=["pdf"],
+        accept_multiple_files=False,
+        label_visibility="collapsed",
+        key="jd_uploader",
+    )
+
+    # Reset results when file selection (CV set or JD) changes
     files_key = ",".join(sorted(f.name for f in uploaded_files)) if uploaded_files else ""
+    if jd_file:
+        files_key += f"|JD:{jd_file.name}"
     if files_key and st.session_state["last_file"] != files_key:
         _clear_results()
         st.session_state["last_file"] = files_key
@@ -208,9 +220,11 @@ if agent_configured:
     if uploaded_files:
         cv_file = uploaded_files[0]
         extras  = uploaded_files[1:]
-        st.info(f"📄 **CV:** {cv_file.name}" + (
-            f"  |  📎 **Adicionales:** {', '.join(f.name for f in extras)}" if extras else ""
-        ))
+        st.info(
+            f"📄 **CV:** {cv_file.name}"
+            + (f"  |  📎 **Adicionales:** {', '.join(f.name for f in extras)}" if extras else "")
+            + (f"  |  🎯 **JD:** {jd_file.name}" if jd_file else "")
+        )
 
         # Show Process button only when no results yet
         if st.session_state["pdfs"] is None:
@@ -218,12 +232,20 @@ if agent_configured:
                 import requests
                 from modules.agent_client import CandidateData
 
-                with st.spinner("🤖 Extrayendo y procesando datos..."):
+                spinner_msg = (
+                    "🎯 Extrayendo y adaptando a la búsqueda..." if jd_file
+                    else "🤖 Extrayendo y procesando datos..."
+                )
+                with st.spinner(spinner_msg):
                     try:
                         files_payload = [
                             ("files", (f.name, f.getvalue(), "application/pdf"))
                             for f in uploaded_files
                         ]
+                        if jd_file:
+                            files_payload.append(
+                                ("jd", (jd_file.name, jd_file.getvalue(), "application/pdf"))
+                            )
                         resp = requests.post(
                             f"{API_URL}/api/extract",
                             files=files_payload,

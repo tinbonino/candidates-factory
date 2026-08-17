@@ -90,6 +90,18 @@ QUALITATIVE ANALYSIS RULES:
 - Both arrays must be substantive and differentiated — avoid repeating the same idea across items."""
 
 
+# Appended to the user message ONLY when a target Job Description is supplied.
+# Tailors emphasis toward the role without ever fabricating anything.
+JD_TAILORING_RULES = """A TARGET JOB DESCRIPTION is provided below. Tailor the structured output so it highlights what this role is looking for, following these rules STRICTLY:
+
+- Rewrite `summary`, `core_expertise`, `technical_highlights`, `key_strengths` and `integration_skills` to foreground the candidate's REAL experience and skills that best match the job description.
+- Order the `skills` array so skills matching the job description appear FIRST. Keep every skill — never drop skills and never add skills the candidate does not actually have.
+- Keep the `experience` roles in their original reverse-chronological order — do NOT reorder roles by relevance. Within each role, order the `achievements` so the most job-relevant ones come first. Keep EVERY role and EVERY achievement.
+- Orient `professional_badges` and `qualitative_profile` toward the competencies the job description emphasizes, using only evidence already present in the CV.
+- ABSOLUTE INTEGRITY RULE: never invent, exaggerate, or add experience, skills, tools, certifications, or achievements the candidate does not have. Reorganizing and emphasizing real content is allowed; fabricating is forbidden.
+- Do NOT mention the job description, the tailoring, the target role, or the hiring process in any output field. The result must still read as a neutral, truthful CV."""
+
+
 @dataclass
 class CandidateData:
     first_name: str
@@ -277,9 +289,13 @@ class AgentClient:
         self._groq_key   = os.getenv("GROQ_API_KEY", "")
         self._gemini_key = os.getenv("GEMINI_API_KEY", "")
 
-    def extract_candidate_data(self, cv_text: str) -> CandidateData:
-        """Provider chain: Gemini → SAI → Groq. Falls through on any failure."""
-        candidate = self._extract(cv_text)
+    def extract_candidate_data(self, cv_text: str, jd_text: Optional[str] = None) -> CandidateData:
+        """Provider chain: Gemini → SAI → Groq. Falls through on any failure.
+
+        When jd_text is provided, the structured output is reorganized to
+        emphasize the candidate's real experience most relevant to that job
+        description (never fabricating anything)."""
+        candidate = self._extract(cv_text, jd_text)
 
         # Show ONLY the experience deterministically computed from the dated
         # work history. We deliberately ignore (a) the LLM's own arithmetic,
@@ -290,19 +306,19 @@ class AgentClient:
 
         return candidate
 
-    def _extract(self, cv_text: str) -> CandidateData:
+    def _extract(self, cv_text: str, jd_text: Optional[str] = None) -> CandidateData:
         errors = []
 
         if self._gemini_key:
             try:
-                return self._extract_via_gemini(cv_text)
+                return self._extract_via_gemini(cv_text, jd_text)
             except Exception as e:
                 errors.append(f"Gemini: {e}")
                 print(f"[AgentClient] Gemini failed ({e}), trying next provider.")
 
         if SAI_API_KEY:
             try:
-                return self._extract_via_sai(cv_text)
+                return self._extract_via_sai(cv_text, jd_text)
             except Exception as e:
                 errors.append(f"SAI: {e}")
                 print(f"[AgentClient] SAI failed ({e}), falling back to Groq.")
@@ -313,18 +329,30 @@ class AgentClient:
             )
 
         try:
-            return self._extract_via_groq(cv_text)
+            return self._extract_via_groq(cv_text, jd_text)
         except Exception as e:
             errors.append(f"Groq: {e}")
             raise RuntimeError("All providers failed → " + " | ".join(errors)) from e
 
+    @staticmethod
+    def _build_task_message(cv_text: str, jd_text: Optional[str]) -> str:
+        """Build the user-facing task message, injecting JD tailoring when present."""
+        if jd_text and jd_text.strip():
+            return (
+                "Extract the candidate data from the following documents.\n\n"
+                f"{JD_TAILORING_RULES}\n\n"
+                f"=== TARGET JOB DESCRIPTION ===\n{jd_text.strip()}\n\n"
+                f"=== CANDIDATE DOCUMENTS ===\n{cv_text}"
+            )
+        return f"Extract the candidate data from the following documents:\n\n{cv_text}"
+
     # ── Gemini ──────────────────────────────────────────────────────────────
-    def _extract_via_gemini(self, cv_text: str) -> CandidateData:
+    def _extract_via_gemini(self, cv_text: str, jd_text: Optional[str] = None) -> CandidateData:
         # Gemini has a 1M-token context window — no compression needed.
         payload = {
             "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
             "contents": [
-                {"parts": [{"text": f"Extract the candidate data from the following documents:\n\n{cv_text}"}]}
+                {"parts": [{"text": self._build_task_message(cv_text, jd_text)}]}
             ],
             "generationConfig": {
                 "temperature": 0.1,
@@ -356,12 +384,14 @@ class AgentClient:
         return CandidateData.from_dict(data)
 
     # ── SAI ───────────────────────────────────────────────────────────────
-    def _extract_via_sai(self, cv_text: str) -> CandidateData:
+    def _extract_via_sai(self, cv_text: str, jd_text: Optional[str] = None) -> CandidateData:
         headers = {
             "X-API-KEY":    SAI_API_KEY,
             "Content-Type": "application/json",
         }
-        payload = {"inputs": {"resume": cv_text}}
+        # SAI is a server-side template that only takes a `resume` input, so the
+        # JD tailoring instructions are folded into that text.
+        payload = {"inputs": {"resume": self._build_task_message(cv_text, jd_text)}}
 
         resp = requests.post(SAI_ENDPOINT, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
@@ -392,7 +422,7 @@ class AgentClient:
         return CandidateData.from_dict(data)
 
     # ── Groq ──────────────────────────────────────────────────────────────
-    def _extract_via_groq(self, cv_text: str) -> CandidateData:
+    def _extract_via_groq(self, cv_text: str, jd_text: Optional[str] = None) -> CandidateData:
         headers = {
             "Authorization": f"Bearer {self._groq_key}",
             "Content-Type":  "application/json",
@@ -403,11 +433,14 @@ class AgentClient:
         CHAR_LIMIT = 12_000
         text = self._compress_cv(cv_text, CHAR_LIMIT)
 
+        # Keep the JD short here so the tight Groq budget isn't blown.
+        jd_short = jd_text[:3_000] if jd_text else None
+
         payload = {
             "model": GROQ_MODEL,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user",   "content": f"Extract the candidate data from the following documents:\n\n{text}"},
+                {"role": "user",   "content": self._build_task_message(text, jd_short)},
             ],
             "temperature": 0.1,
             "max_tokens":  6000,
