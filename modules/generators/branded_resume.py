@@ -171,25 +171,26 @@ def generate(candidate, output_path: str):
         textColor=MID_GRAY, leading=11
     )
     for exp in candidate.experience:
-        story.append(Paragraph(exp.get("role", ""), _bold(10)))
+        story.append(Paragraph(exp.get("role") or "", _bold(10)))
         story.append(
             Paragraph(
-                f"{exp.get('company','')}  |  {exp.get('period','')}",
+                f"{exp.get('company') or ''}  |  {exp.get('period') or ''}",
                 meta_style,
             )
         )
         if exp.get("description"):
-            story.append(Paragraph(exp["description"], _body(8)))
+            story.append(Paragraph(exp["description"] or "", _body(8)))
         for ach in exp.get("achievements", []):
-            story.append(Paragraph(f"▸  {ach}", _body(8)))
+            if ach:
+                story.append(Paragraph(f"▸  {ach}", _body(8)))
         story.append(Spacer(1, 4 * mm))
 
     # Education
     if candidate.education:
         story.extend(_section("Education"))
         for edu in candidate.education:
-            story.append(Paragraph(edu.get("degree", ""), _bold(9)))
-            inst = edu.get("institution", "") or ""
+            story.append(Paragraph(edu.get("degree") or "", _bold(9)))
+            inst = edu.get("institution") or ""
             year = edu.get("year", "") or ""
             if year.strip().lower() in ("", "none", "n/a", "unknown", "not specified"):
                 year = ""

@@ -262,8 +262,8 @@ def _draw_left(c, candidate):
     for badge in badges[:3]:
         if y < BODY_BOT + 14 * mm:
             break
-        title = badge.get("title", "")
-        body  = badge.get("body", "")
+        title = badge.get("title") or ""
+        body  = badge.get("body") or ""
         y = _block_title(c, SB_X, y, title)
         h = _para(c, body, SB_X, y, SB_W, 35 * mm,
                   font="Helvetica", size=8.5, color=C_DARK, leading=12.5)
@@ -340,8 +340,8 @@ def _draw_right(c, candidate):
     for block in qual[:3]:
         if y < BODY_BOT + lang_reserve + 14 * mm:
             break
-        title = block.get("title", "")
-        body  = block.get("body", "")
+        title = block.get("title") or ""
+        body  = block.get("body") or ""
         y = _block_title(c, MN_X, y, title, width=MN_W)
         h = _para(c, body, MN_X, y, MN_W, 35 * mm,
                   font="Helvetica", size=9, color=C_DARK, leading=13.5)
