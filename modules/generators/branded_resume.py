@@ -209,7 +209,7 @@ def generate(candidate, output_path: str):
     if candidate.languages:
         story.extend(_section("Languages"))
         langs = "   |   ".join(
-            f"{l.get('lang','')} ({l.get('level','')})" for l in candidate.languages
+            f"{l.get('lang') or ''} ({l.get('level') or ''})" for l in candidate.languages
         )
         story.append(Paragraph(langs, _body(9)))
 
