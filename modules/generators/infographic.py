@@ -324,7 +324,7 @@ def _draw_right(c, candidate):
                 "body": f"Demonstrated high-impact delivery across {ind_list} sectors, adapting technical solutions to diverse business contexts and regulatory environments.",
             })
         if len(candidate.languages or []) > 1:
-            langs = " and ".join(l.get("lang", "") for l in candidate.languages[:3])
+            langs = " and ".join(l.get("lang") or "" for l in candidate.languages[:3])
             qual.append({
                 "title": "Bilingual Technical Communicator",
                 "body": f"Professional proficiency in {langs}, enabling seamless collaboration with global and regional teams across time zones.",
@@ -354,8 +354,8 @@ def _draw_right(c, candidate):
         for lang in candidate.languages[:4]:
             if y < BODY_BOT + 8 * mm:
                 break
-            name   = lang.get("lang", "")
-            level  = lang.get("level", "")
+            name   = lang.get("lang") or ""
+            level  = lang.get("level") or ""
             filled = dot_map.get(level.lower(), 3)
 
             c.setFont("Helvetica-Bold", 8.5)
