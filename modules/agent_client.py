@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = "llama-3.1-70b-versatile"
 
 SYSTEM_PROMPT = """You are an expert HR analyst working for LDH Latam Digital Hub by Stefanini. Your task is to analyze one or more documents about a candidate and return a single, valid JSON object with structured data AND a qualitative profile analysis. You never explain, comment, or add any text outside the JSON.
 
@@ -145,8 +145,8 @@ class CandidateData:
 
     def _lang_level(self, lang_name: str) -> str:
         for l in self.languages:
-            if l.get("lang", "").lower() == lang_name.lower():
-                return l.get("level", "")
+            if (l.get("lang") or "").lower() == lang_name.lower():
+                return l.get("level") or ""
         return ""
 
     @property
