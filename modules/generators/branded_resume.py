@@ -178,7 +178,10 @@ def generate(candidate, output_path: str):
                 meta_style,
             )
         )
-        if exp.get("description"):
+        # Only show the description paragraph when there are no achievements;
+        # otherwise the AI tends to put the same content in both fields.
+        has_achievements = any(a for a in exp.get("achievements", []))
+        if exp.get("description") and not has_achievements:
             story.append(Paragraph(exp["description"] or "", _body(8)))
         for ach in exp.get("achievements", []):
             if ach:
@@ -203,6 +206,14 @@ def generate(candidate, output_path: str):
         story.extend(_section("Certifications"))
         for cert in candidate.certifications:
             story.append(Paragraph(f"• {cert}", _body(9)))
+        story.append(Spacer(1, 3 * mm))
+
+    # Additional Training
+    if candidate.key_training:
+        story.extend(_section("Additional Training"))
+        for training in candidate.key_training:
+            if training:
+                story.append(Paragraph(f"• {training}", _body(9)))
         story.append(Spacer(1, 3 * mm))
 
     # Languages

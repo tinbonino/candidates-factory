@@ -56,7 +56,7 @@ REQUIRED JSON SCHEMA:
       "role": "string",
       "period": "string",
       "description": "string — full description of responsibilities copied faithfully from the CV, preserving ALL details without summarizing or omitting anything",
-      "achievements": ["string — include ALL bullet points, achievements, and responsibilities listed in the CV for this role, do not skip any"]
+      "achievements": ["string — include ALL bullet points, achievements, and responsibilities listed in the CV for this role, do not skip any. If the CV lists clients served in this role (e.g. 'Clients: X, Y, Z'), include them as the last item in this array, formatted as 'Clients: X, Y, Z'."]
     }
   ],
   "education": [{"institution": "string", "degree": "string", "year": "string"}],
