@@ -1,4 +1,10 @@
 {
+  "functions": {
+    "main.py": {
+      "maxDuration": 120,
+      "memory": 1024
+    }
+  },
   "builds": [
     {
       "src": "main.py",

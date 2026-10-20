@@ -370,12 +370,12 @@ class AgentClient:
                 json=payload,
                 headers={"Content-Type": "application/json"},
                 params={"key": self._gemini_key},
-                timeout=90,
+                timeout=55,
             )
             if resp.status_code in (429, 500, 503) and attempt == 0:
                 import time
-                print(f"[AgentClient] Gemini transient {resp.status_code}, retrying in 5s")
-                time.sleep(5)
+                print(f"[AgentClient] Gemini transient {resp.status_code}, retrying in 3s")
+                time.sleep(3)
                 continue
             resp.raise_for_status()
             break
@@ -450,7 +450,7 @@ class AgentClient:
         }
 
         for attempt in range(2):
-            resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=120)
+            resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=55)
             if resp.status_code == 429 and attempt == 0:
                 wait = int(resp.headers.get("retry-after", 20))
                 wait = min(wait, 25)
