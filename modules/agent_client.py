@@ -370,12 +370,10 @@ class AgentClient:
                 json=payload,
                 headers={"Content-Type": "application/json"},
                 params={"key": self._gemini_key},
-                timeout=55,
+                timeout=25,
             )
             if resp.status_code in (429, 500, 503) and attempt == 0:
-                import time
-                print(f"[AgentClient] Gemini transient {resp.status_code}, retrying in 3s")
-                time.sleep(3)
+                print(f"[AgentClient] Gemini transient {resp.status_code}, retrying immediately")
                 continue
             resp.raise_for_status()
             break
@@ -396,7 +394,7 @@ class AgentClient:
         # JD tailoring instructions are folded into that text.
         payload = {"inputs": {"resume": self._build_task_message(cv_text, jd_text)}}
 
-        resp = requests.post(SAI_ENDPOINT, json=payload, headers=headers, timeout=30)
+        resp = requests.post(SAI_ENDPOINT, json=payload, headers=headers, timeout=20)
         resp.raise_for_status()
 
         body = resp.json()
@@ -450,7 +448,7 @@ class AgentClient:
         }
 
         for attempt in range(2):
-            resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=55)
+            resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=25)
             if resp.status_code == 429 and attempt == 0:
                 wait = int(resp.headers.get("retry-after", 20))
                 wait = min(wait, 25)
