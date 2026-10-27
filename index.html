@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Candidates Factory — LDH</title>
+<style>
+  :root {
+    --blue:   #003087;
+    --orange: #FF6B00;
+    --light:  #f5f7fa;
+    --border: #dde3ec;
+    --text:   #1a1a2e;
+    --gray:   #6b7280;
+    --green:  #16a34a;
+    --red:    #dc2626;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: var(--light); color: var(--text); min-height: 100vh; }
+
+  /* ── Login ── */
+  #login-screen {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 24px;
+  }
+  .login-card {
+    background: white; border-radius: 12px; padding: 40px;
+    width: 100%; max-width: 380px;
+    box-shadow: 0 4px 24px rgba(0,48,135,.12);
+  }
+  .login-card h2 { color: var(--blue); font-size: 1.3rem; margin-bottom: 6px; }
+  .login-card p  { color: var(--gray); font-size: .875rem; margin-bottom: 28px; }
+
+  /* ── App ── */
+  #app-screen { display: none; max-width: 720px; margin: 0 auto; padding: 24px; }
+
+  .header {
+    background: var(--blue); color: white; border-radius: 10px;
+    padding: 18px 24px; display: flex; align-items: center;
+    margin-bottom: 24px; gap: 16px;
+  }
+  .header-bar { border-left: 3px solid var(--orange); padding-left: 16px; }
+  .header-title { font-size: 1.2rem; font-weight: 700; }
+  .header-sub   { font-size: .8rem; opacity: .8; margin-top: 2px; }
+
+  .card {
+    background: white; border-radius: 10px; padding: 24px;
+    margin-bottom: 16px; border: 1px solid var(--border);
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  }
+  .card h3 { color: var(--blue); font-size: .95rem; margin-bottom: 4px; }
+  .card .hint { color: var(--gray); font-size: .8rem; margin-bottom: 16px; }
+
+  /* ── Form elements ── */
+  label { display: block; font-size: .85rem; font-weight: 600;
+          color: var(--blue); margin-bottom: 6px; }
+  input[type="text"], input[type="password"], input[type="file"] {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+    border-radius: 6px; font-size: .9rem; color: var(--text);
+    transition: border-color .15s;
+  }
+  input[type="text"]:focus, input[type="password"]:focus {
+    outline: none; border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(0,48,135,.08);
+  }
+  input[type="file"] { padding: 8px; cursor: pointer; }
+
+  .optional-label {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  }
+  .optional-label label { margin-bottom: 0; }
+  .badge-opt {
+    font-size: .7rem; background: var(--light); color: var(--gray);
+    border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px;
+  }
+
+  .sp-row { display: flex; gap: 12px; align-items: flex-end; }
+  .sp-row > div:first-child { flex: 1; }
+  .sp-prefix {
+    font-size: .75rem; color: var(--gray); margin-bottom: 6px;
+    font-family: monospace;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 8px; padding: 11px 20px; border-radius: 6px; border: none;
+    font-size: .9rem; font-weight: 600; cursor: pointer; width: 100%;
+    transition: opacity .15s, transform .1s;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+  .btn-primary  { background: var(--orange); color: white; }
+  .btn-primary:hover:not(:disabled)  { opacity: .9; }
+  .btn-secondary { background: var(--blue);  color: white; }
+  .btn-secondary:hover:not(:disabled) { opacity: .9; }
+  .btn-ghost { background: white; color: var(--blue);
+               border: 1px solid var(--border); }
+  .btn-ghost:hover:not(:disabled) { background: var(--light); }
+
+  .btn-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  @media (max-width: 520px) { .btn-row { grid-template-columns: 1fr; } }
+
+  /* ── Status ── */
+  #status-area { margin: 16px 0; }
+  .status-msg {
+    padding: 12px 16px; border-radius: 6px; font-size: .875rem;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .status-info    { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .status-success { background: #f0fdf4; color: var(--green); border: 1px solid #bbf7d0; }
+  .status-error   { background: #fef2f2; color: var(--red);  border: 1px solid #fecaca; }
+  .status-warn    { background: #fffbeb; color: #92400e;     border: 1px solid #fde68a; }
+
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid currentColor;
+    border-top-color: transparent; border-radius: 50%;
+    animation: spin .7s linear infinite; flex-shrink: 0; margin-top: 1px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Results ── */
+  #results-area { display: none; }
+  .candidate-banner {
+    background: linear-gradient(135deg, var(--blue) 0%, #1e4da0 100%);
+    color: white; border-radius: 10px; padding: 18px 24px; margin-bottom: 16px;
+  }
+  .candidate-banner .name  { font-size: 1.1rem; font-weight: 700; }
+  .candidate-banner .title { font-size: .85rem; opacity: .8; margin-top: 4px; }
+
+  .sp-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 20px; font-size: .78rem;
+    font-weight: 600; margin-top: 10px;
+  }
+  .sp-uploaded { background: rgba(255,255,255,.2); color: #86efac; }
+  .sp-skipped  { background: rgba(255,255,255,.12); color: rgba(255,255,255,.7); }
+  .sp-error    { background: rgba(220,38,38,.25); color: #fca5a5; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  /* ── Logout ── */
+  .top-bar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+  .logout-btn {
+    background: none; border: none; color: var(--gray); font-size: .8rem;
+    cursor: pointer; padding: 4px 8px; border-radius: 4px;
+  }
+  .logout-btn:hover { background: var(--border); }
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ──────────────────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-card">
+    <h2>Candidates Factory</h2>
+    <p>LDH Latam Digital Hub by Stefanini</p>
+    <div id="login-error" style="display:none" class="status-msg status-error" style="margin-bottom:16px"></div>
+    <form id="login-form">
+      <label for="pwd">Contraseña</label>
+      <input type="password" id="pwd" autocomplete="current-password" placeholder="••••••••" required style="margin-bottom:16px">
+      <button type="submit" class="btn btn-secondary">Ingresar</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── APP ────────────────────────────────────────────────────────────────── -->
+<div id="app-screen">
+  <div class="top-bar">
+    <button class="logout-btn" onclick="logout()">Cerrar sesión ↩</button>
+  </div>
+
+  <div class="header">
+    <div class="header-bar">
+      <div class="header-title">Candidates Factory</div>
+      <div class="header-sub">LDH Latam Digital Hub by Stefanini</div>
+    </div>
+  </div>
+
+  <!-- CV Upload -->
+  <div class="card">
+    <h3>Documentos del candidato</h3>
+    <p class="hint">El primer archivo debe ser el CV/Resume. Podés agregar tests técnicos u otros documentos adicionales.</p>
+    <label for="cv-files">CV / Documentos (PDF)</label>
+    <input type="file" id="cv-files" accept=".pdf" multiple>
+  </div>
+
+  <!-- JD + Vacancy (optional) -->
+  <div class="card">
+    <h3>Opciones adicionales</h3>
+    <p class="hint">Ambos campos son opcionales.</p>
+
+    <div style="margin-bottom:18px">
+      <div class="optional-label">
+        <label for="jd-file">Job Description</label>
+        <span class="badge-opt">opcional</span>
+      </div>
+      <input type="file" id="jd-file" accept=".pdf">
+    </div>
+
+    <div>
+      <div class="optional-label">
+        <label for="vacancy-folder">Carpeta de vacante en SharePoint</label>
+        <span class="badge-opt">opcional</span>
+      </div>
+      <p class="sp-prefix">Vacancy Files / ...</p>
+      <input type="text" id="vacancy-folder"
+             placeholder="Abiomed/CSV Validation Engineer 2026-09-16">
+    </div>
+  </div>
+
+  <!-- Action -->
+  <button id="process-btn" class="btn btn-primary" onclick="processCV()">
+    Procesar documentos
+  </button>
+
+  <!-- Status -->
+  <div id="status-area"></div>
+
+  <!-- Results -->
+  <div id="results-area">
+    <div class="candidate-banner" id="candidate-banner">
+      <div class="name" id="candidate-name"></div>
+      <div class="title" id="candidate-title"></div>
+      <div id="sp-badge-container"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:14px">Descargar documentos</h3>
+      <div class="btn-row" id="individual-btns"></div>
+      <hr class="divider">
+      <button class="btn btn-ghost" id="zip-btn">⬇ Descargar los 3 documentos en ZIP</button>
+    </div>
+
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="resetForm()">
+      🔄 Procesar otro CV
+    </button>
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let _token = '';
+let _result = null;
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = sessionStorage.getItem('cf_token');
+  if (saved) { _token = saved; showApp(); }
+});
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const pwd = document.getElementById('pwd').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  try {
+    const resp = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${pwd}` },
+    });
+    if (!resp.ok) {
+      errEl.textContent = '❌ Contraseña incorrecta.';
+      errEl.style.display = 'flex';
+      return;
+    }
+    _token = pwd;
+    sessionStorage.setItem('cf_token', pwd);
+    showApp();
+  } catch (err) {
+    errEl.textContent = `❌ Error de conexión: ${err.message}`;
+    errEl.style.display = 'flex';
+  }
+});
+
+function showApp()  {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display   = 'block';
+}
+
+function logout() {
+  sessionStorage.removeItem('cf_token');
+  _token = '';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display   = 'none';
+  document.getElementById('pwd').value = '';
+}
+
+// ── Process ───────────────────────────────────────────────────────────────────
+async function processCV() {
+  const cvInput  = document.getElementById('cv-files');
+  const jdInput  = document.getElementById('jd-file');
+  const vfInput  = document.getElementById('vacancy-folder');
+  const statusEl = document.getElementById('status-area');
+  const btn      = document.getElementById('process-btn');
+
+  if (!cvInput.files.length) {
+    setStatus('error', '⚠ Seleccioná al menos el CV del candidato.');
+    return;
+  }
+
+  btn.disabled = true;
+  document.getElementById('results-area').style.display = 'none';
+
+  const hasJD = jdInput.files.length > 0;
+  const hasVF = vfInput.value.trim() !== '';
+
+  setStatus('info', [
+    { spinner: true },
+    hasJD ? '🎯 Extrayendo y adaptando a la búsqueda...' : '🤖 Extrayendo y procesando datos...',
+  ]);
+
+  const form = new FormData();
+  for (const f of cvInput.files) form.append('files', f);
+  if (hasJD) form.append('jd', jdInput.files[0]);
+  if (hasVF) form.append('vacancy_folder', vfInput.value.trim());
+
+  try {
+    const resp = await fetch('/api/process', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${_token}` },
+      body: form,
+    });
+
+    if (!resp.ok) {
+      let detail = resp.statusText;
+      try { const j = await resp.json(); detail = j.detail || detail; } catch {}
+      setStatus('error', `❌ Error del servidor (${resp.status}): ${detail}`);
+      btn.disabled = false;
+      return;
+    }
+
+    setStatus('info', [{ spinner: true }, '📄 Generando documentos...']);
+    _result = await resp.json();
+
+    showResults(_result);
+    setStatus('success', `✅ Documentos generados para <strong>${_result.candidate_name}</strong>`);
+
+  } catch (err) {
+    setStatus('error', `❌ Error de red: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function showResults(data) {
+  const safe = data.candidate_name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/\._/g, '_');
+
+  document.getElementById('candidate-name').textContent  = data.candidate_name;
+  document.getElementById('candidate-title').textContent = data.candidate_title || '';
+
+  // SharePoint badge
+  const sp = data.sharepoint || {};
+  const spEl = document.getElementById('sp-badge-container');
+  if (sp.status === 'uploaded') {
+    spEl.innerHTML = `<span class="sp-badge sp-uploaded">☁ Guardado en SharePoint</span>`;
+  } else if (sp.status === 'error') {
+    spEl.innerHTML = `<span class="sp-badge sp-error">⚠ Error en SharePoint: ${sp.detail}</span>`;
+  } else if (sp.status === 'skipped' && sp.reason === 'No vacancy folder provided') {
+    spEl.innerHTML = `<span class="sp-badge sp-skipped">📁 Sin carpeta de vacante — no se subió a SharePoint</span>`;
+  }
+
+  // Individual download buttons
+  const labels = {
+    infographic:     { icon: '📊', label: 'Infographic',     name: `infographic_${safe}.pdf` },
+    submission_form: { icon: '📋', label: 'Submission Form', name: `submission_form_${safe}.pdf` },
+    resume_branded:  { icon: '📄', label: 'Branded Resume',  name: `Stefanini_resume_${safe}.pdf` },
+  };
+  const btnsEl = document.getElementById('individual-btns');
+  btnsEl.innerHTML = '';
+  for (const [key, meta] of Object.entries(labels)) {
+    const b64 = data.files[key];
+    if (!b64) continue;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-secondary';
+    btn.innerHTML = `${meta.icon} ${meta.label}`;
+    btn.onclick = () => downloadB64(b64, meta.name);
+    btnsEl.appendChild(btn);
+  }
+
+  // ZIP button
+  document.getElementById('zip-btn').onclick = () =>
+    downloadB64(data.zip_b64, `LDH_${safe}_docs.zip`);
+
+  document.getElementById('results-area').style.display = 'block';
+}
+
+function resetForm() {
+  _result = null;
+  document.getElementById('cv-files').value    = '';
+  document.getElementById('jd-file').value     = '';
+  document.getElementById('vacancy-folder').value = '';
+  document.getElementById('results-area').style.display = 'none';
+  document.getElementById('status-area').innerHTML = '';
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function setStatus(type, content) {
+  const el = document.getElementById('status-area');
+  let html = '';
+  if (Array.isArray(content)) {
+    html = content.map(c =>
+      typeof c === 'string' ? c : '<div class="spinner"></div>'
+    ).join('');
+  } else {
+    html = content;
+  }
+  el.innerHTML = `<div class="status-msg status-${type}">${html}</div>`;
+}
+
+function downloadB64(b64, filename) {
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const blob  = new Blob([bytes], { type: 'application/octet-stream' });
+  const url   = URL.createObjectURL(blob);
+  const a     = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
