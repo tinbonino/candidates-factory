@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama3-70b-8192")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 SYSTEM_PROMPT = """You are an expert HR analyst working for LDH Latam Digital Hub by Stefanini. Your task is to analyze one or more documents about a candidate and return a single, valid JSON object with structured data AND a qualitative profile analysis. You never explain, comment, or add any text outside the JSON.
 
@@ -370,7 +370,7 @@ class AgentClient:
                 json=payload,
                 headers={"Content-Type": "application/json"},
                 params={"key": self._gemini_key},
-                timeout=25,
+                timeout=50,
             )
             if resp.status_code in (429, 500, 503) and attempt == 0:
                 print(f"[AgentClient] Gemini transient {resp.status_code}, retrying immediately")
