@@ -94,6 +94,7 @@ async def extract_cv(
             text = text[:limit] + "\n\n[... document truncated for processing ...]"
 
         label = "RESUME / CV" if i == 0 else f"SUPPLEMENTARY DOCUMENT: {upload.filename}"
+        print(f"[extract] file={upload.filename} chars={len(text)}")
         sections.append(f"=== {label} ===\n{text}")
 
     combined_text = "\n\n".join(sections)
@@ -121,6 +122,7 @@ async def extract_cv(
     try:
         from modules.agent_client import AgentClient
         candidate = AgentClient().extract_candidate_data(combined_text, jd_text)
+        print(f"[extract] result name={candidate.display_name!r} exp_count={len(candidate.experience)} yoe={candidate.years_of_experience}")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Agent extraction failed: {e}")
 
@@ -192,6 +194,7 @@ async def process_cv(
         if len(text) > limit:
             text = text[:limit] + "\n\n[... document truncated ...]"
         label = "RESUME / CV" if i == 0 else f"SUPPLEMENTARY DOCUMENT: {upload.filename}"
+        print(f"[process] file={upload.filename} chars={len(text)}")
         sections.append(f"=== {label} ===\n{text}")
 
     combined_text = "\n\n".join(sections)
@@ -212,6 +215,7 @@ async def process_cv(
     try:
         from modules.agent_client import AgentClient
         candidate = AgentClient().extract_candidate_data(combined_text, jd_text)
+        print(f"[process] result name={candidate.display_name!r} exp_count={len(candidate.experience)} yoe={candidate.years_of_experience}")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Agent extraction failed: {e}")
 

@@ -84,6 +84,8 @@ REQUIRED JSON SCHEMA:
   ]
 }
 
+⚠️ CRITICAL COMPLETENESS RULE — EXPERIENCE ARRAY: The `experience` array must contain ONE entry per employer/company found anywhere in the CV's work history section. If the CV lists 2 jobs, the array must have exactly 2 entries; if 5 jobs, exactly 5. NEVER skip, omit, merge, or drop any position regardless of its relevance or how short the tenure was. Producing fewer experience entries than the CV contains is a critical extraction failure.
+
 QUALITATIVE ANALYSIS RULES:
 - professional_badges: generate 2 to 3 items. Each badge must reflect a concrete technical specialization clearly evidenced in the CV (e.g. years in a specific technology, a notable project, a certification). Use specific data points.
 - qualitative_profile: generate 3 to 4 items covering dimensions such as: leadership style, industry versatility, communication / language skills, innovation capacity, teamwork or mentoring ability, problem-solving approach. Each item must be grounded in specific evidence from the CV, not generic praise.
